@@ -1,0 +1,37 @@
+# Compilados Arduino
+*.hex
+*.elf
+*.bin
+*.eep
+
+# Arduino build cache
+*.out
+*.o
+*.a
+*.lst
+*.map
+build/
+cmake-build-*/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Mac / Windows
+.DS_Store
+Thumbs.db
+
+# Python (si usas notebooks para entrenamiento)
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+
+# Datos grandes / temporales
+data/*.tmp
+data/*.log
+data/*.bak
+
+# Modelos generados
+models/*.tmp
