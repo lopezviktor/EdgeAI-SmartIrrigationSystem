@@ -1,184 +1,187 @@
 # 🌱 Smart Irrigation System – IoT + Edge AI (TinyML)
-![Architecture Overview](docs/diagrams/system_context_diagram.drawio.png)
 
+## 1. Project Overview
 
-In regions affected by water scarcity, traditional irrigation systems often rely on fixed schedules or manual control, leading to significant water waste. This project proposes a low-cost, intelligent irrigation solution that combines IoT sensing, Edge AI inference, and cloud-based monitoring to achieve efficient and autonomous water management.
+In regions affected by water scarcity, traditional irrigation systems often rely on fixed schedules or manual control, leading to significant water waste.  
+This project proposes a **low-cost, intelligent irrigation solution** that combines **IoT sensing**, **Edge AI inference**, and **cloud-based monitoring** to achieve efficient and autonomous water management.
 
-This project implements a **Smart Irrigation System** using **IoT** and **Edge Artificial Intelligence (TinyML)** to optimize water usage in agricultural environments.  
-It integrates **Arduino UNO**, **ESP32**, and **ThingSpeak Cloud** to make intelligent decisions about watering needs in real time.
-
-![Arduino](https://img.shields.io/badge/Arduino-UNO%20R4%20WiFi-blue)
-![ESP32](https://img.shields.io/badge/ESP32-Gateway-orange)
-![TinyML](https://img.shields.io/badge/EdgeAI-TensorFlowLiteMicro-green)
-![ThingSpeak](https://img.shields.io/badge/Cloud-ThingSpeak-blue)
+The system integrates **Arduino UNO R4 WiFi**, **ESP32 Gateway**, and **ThingSpeak Cloud** to make real-time, data-driven irrigation decisions directly at the edge.
 
 ---
 
-## Objectives
+## 2. Objectives
 
-- Develop a **reliable IoT-based irrigation system** capable of operating autonomously.
-- Use **Edge AI (TinyML)** to decide locally whether to **water or not** without depending on the cloud.
-- Enable **data transmission and visualization** through **ThingSpeak Cloud**.
-- Demonstrate the benefits of combining **IoT + Edge AI + Cloud** for sustainable resource management.
-
----
-
-## System Architecture Overview
-
-
-> Full circuit simulation and schematic are available in `/hardware/tinkercad/`  
-> Architecture diagram stored in `/docs/media/architecture.png`
+- Develop a **reliable IoT-based irrigation system** capable of autonomous operation.  
+- Implement **Edge AI (TinyML)** to perform on-device inference (“water” / “no water”) without cloud dependency.  
+- Enable **real-time data transmission and visualization** through **ThingSpeak Cloud**.  
+- Demonstrate the benefits of combining **IoT, Edge AI, and Cloud** for sustainable resource management.
 
 ---
 
-## Components
+## 3. System Architecture
+
+> The full circuit simulation and schematic are available in `/hardware/tinkercad/`.  
+> Detailed architecture diagrams are stored in `/docs/diagrams/`.
+
+### 3.1 System Context Diagram
+<p align="center">
+  <img src="docs/diagrams/system_context_diagram.drawio.png" alt="System Context Diagram" width="65%">
+</p>
+
+### 3.2 Data Flow Diagram (M2M)
+<p align="center">
+  <img src="docs/diagrams/data_flow_diagram.drawio.png" alt="Data Flow Diagram" width="70%">
+</p>
+
+### 3.3 Components
 
 | Category | Component | Description |
-|-----------|------------|--------------|
-| **Microcontrollers** | Arduino UNO, ESP32 | Main processing and WiFi connectivity |
-| **Sensors** | 2× Soil Moisture Sensors, DHT22, LDR | Environmental data acquisition |
-| **Actuator** | Peristaltic Water Pump | Executes watering action |
-| **Power** | 5V DC Power Supply | Supplies pump and microcontrollers |
-| **Connectivity** | UART (M2M), WiFi (Cloud)	Local Machine-to-Machine communication between Arduino UNO R4 WiFi and ESP32 Gateway, and WiFi uplink to ThingSpeak Cloud. |
-| **Cloud** | ThingSpeak | IoT data analytics and dashboard |
+|-----------|------------|-------------|
+| **Microcontrollers** | Arduino UNO R4 WiFi, ESP32 | Edge processing and communication gateway |
+| **Sensors** | 2× Soil Moisture Sensors, DHT22, LDR | Environmental and soil condition sensing |
+| **Actuator** | Peristaltic Water Pump | Controls irrigation based on AI decision |
+| **Power Supply** | 5V / 12V DC Adapter | Provides power to sensors, controllers, and pump |
+| **Connectivity** | UART (M2M), WiFi (Cloud) | Local serial link between Arduino UNO R4 WiFi and ESP32; WiFi uplink to ThingSpeak Cloud |
+| **Cloud Platform** | ThingSpeak | IoT data analytics, visualization, and dashboards |
 
 ---
 
-## Data Flow
+## 4. Data Flow Description
 
-1. **Sensors** collect environmental data (soil moisture, temperature, light).  
-2. **Arduino UNO** performs **TinyML inference** to predict “Water” or “No Water”.  
-3. Prediction and sensor readings are sent via **UART** to **ESP32**.  
-4. **ESP32** uploads the data to **ThingSpeak Cloud** via WiFi.  
-5. Data is visualized in real time on a **ThingSpeak dashboard**.  
-6. Optional: Cloud analytics or alerts (e.g., water efficiency metrics).
+1. Environmental sensors collect **soil moisture**, **temperature**, and **light intensity** data.  
+2. The **Arduino UNO R4 WiFi** preprocesses and performs **TinyML inference**, classifying the state as “water” or “no water.”  
+3. The decision and raw sensor readings are transmitted via **UART (M2M)** to the **ESP32 gateway**.  
+4. The **ESP32** sends the data to **ThingSpeak Cloud** using HTTPS.  
+5. ThingSpeak visualizes the data and AI predictions in real time through its dashboard interface.  
+6. Optional: Additional cloud analytics and efficiency metrics can be implemented.
 
 ---
 
-## Edge AI (TinyML)
+## 5. Edge AI (TinyML)
 
-- Model trained using a **custom dataset** of environmental conditions (`/data/dataset.csv`).
-- Binary classification:  
+- The model was trained on a **custom dataset** of environmental parameters stored in `/data/dataset.csv`.  
+- **Classification goal:**  
   - `0 → No Water`  
-  - `1 → Water`
-- Model trained in **TensorFlow**, converted to **TensorFlow Lite Micro**, and deployed on **Arduino UNO**.
-- Inference performed locally on-device → **low latency and improved privacy**.
+  - `1 → Water`  
+- **Model pipeline:**  
+  Trained using TensorFlow → converted to TensorFlow Lite → quantized for **TensorFlow Lite Micro** → deployed on Arduino UNO R4 WiFi.  
+- The inference is executed locally on-device, ensuring **low latency**, **offline operation**, and **data privacy**.
 
 ---
 
-##  Cloud Platform (ThingSpeak)
+## 6. Cloud Platform (ThingSpeak)
 
-- Platform: **MATLAB ThingSpeak IoT Analytics**
-- Channel Fields:
-  - `field1` → Soil Moisture 1  
-  - `field2` → Soil Moisture 2  
-  - `field3` → Temperature  
+- **Platform:** MATLAB ThingSpeak IoT Analytics  
+- **Channel Fields:**
+  - `field1` → Soil Moisture Sensor 1  
+  - `field2` → Soil Moisture Sensor 2  
+  - `field3` → Air Temperature  
   - `field4` → Light Intensity (LDR)  
-  - `field5` → TinyML Prediction (0/1)
-- Includes real-time **graphs and data visualizations**.
-- Dashboard screenshots and analytics results are stored in `/docs/media/`.
+  - `field5` → TinyML Prediction (0 / 1)
+- Provides real-time **graphical visualization** and **data logging**.  
+- Dashboard screenshots and analysis results are stored in `/docs/media/`.
 
 ---
 
-## Firmware Overview
+## 7. Firmware Structure
 
-### Arduino UNO (Edge Device)
-Located in: `/firmware/arduino/`
+### 7.1 Arduino UNO R4 WiFi (Edge Node)
+**Path:** `/firmware/arduino/`
 
 Responsibilities:
-- Read sensors  
-- Run **TinyML inference** (TensorFlow Lite Micro)  
-- Send data and AI results via UART to ESP32  
+- Acquire sensor readings.  
+- Execute TinyML inference.  
+- Transmit data and inference results to ESP32 via UART.
 
-### ESP32 (Communication Gateway)
-Located in: `/firmware/esp32/`
+### 7.2 ESP32 (Communication Gateway)
+**Path:** `/firmware/esp32/`
 
 Responsibilities:
-- Receive UART data from Arduino  
-- Establish WiFi connection  
-- Upload sensor readings and prediction results to ThingSpeak Cloud  
+- Receive and parse UART packets.  
+- Manage WiFi connection and HTTPS POST requests.  
+- Upload telemetry to ThingSpeak Cloud.
 
 ---
 
-## System Design (Tinkercad / Simulation)
+## 8. System Design (Tinkercad Simulation)
 
-- The circuit was designed and simulated in **Tinkercad**.  
-- Components include:
-  - 2× soil sensors connected to analog pins  
-  - DHT22 (temperature and humidity)  
-  - LDR for light intensity  
-  - MOSFET driver for pump activation  
-- Simulation link (public or shareable) included in `/hardware/tinkercad/README.md`.
+The electronic circuit was simulated using **Tinkercad** for early validation of sensor readings and pump control.  
+Components include:
+- Two soil moisture sensors (analog inputs).  
+- DHT22 for temperature and humidity.  
+- LDR for light intensity.  
+- TIP120 transistor driver for the peristaltic pump.  
+
+The public simulation link and configuration details are provided in `/hardware/tinkercad/README.md`.
 
 ---
 
-## Data Collection and Analysis
+## 9. Data Collection and Model Evaluation
 
-- Data collected over multiple environmental conditions.  
+- Data recorded under varying environmental conditions.  
 - Stored in `/data/dataset.csv`.  
-- Used for model training and validation (accuracy, precision, and latency metrics included).  
-- Performance logs and evaluation graphs included in `/docs/media/`.
+- Used for TinyML model training and validation.  
+- Evaluation metrics include **accuracy**, **precision**, **latency**, and **memory footprint**.  
+- Graphical summaries and logs are archived in `/docs/media/`.
 
 ---
 
-## Dashboard Example
+## 10. Dashboard and Visualization
 
-> ThingSpeak dashboard visualizes live environmental data and TinyML predictions.  
-> Example fields:
-> - Moisture levels (two channels)
-> - Temperature trend
-> - Light intensity
-> - Watering decision (binary)
-> - Overall water efficiency metric (calculated field)
+The **ThingSpeak Dashboard** provides real-time insights into environmental parameters and irrigation actions.  
+Displayed metrics include:
+- Soil moisture (2 channels)  
+- Temperature  
+- Light intensity  
+- Irrigation decision (binary)  
+- Calculated water efficiency metric  
 
 ---
 
-## Project Roadmap (Week 1–10)
+## 11. Project Roadmap
 
 | Week | Focus | Deliverables |
 |------|--------|--------------|
-| 1 | Architecture & planning | Problem statement, architecture diagram, GitHub repo |
-| 2–3 | Hardware setup | Sensor validation, UART comms |
-| 4–5 | Data collection + TinyML training | Dataset & model inference |
-| 6 | Cloud integration | ThingSpeak dashboard |
-| 7 | Testing | Validation and logs |
-| 8–9 | Report writing | Academic report draft |
-| 10 | Presentation | Final video + review |
+| 1 | Architecture & Planning | Problem statement, diagrams, GitHub repository |
+| 2–3 | Hardware Setup | Sensor validation, UART communication |
+| 4–5 | Data Collection & Model Training | Dataset creation, TinyML model |
+| 6 | Cloud Integration | ThingSpeak dashboard setup |
+| 7 | Testing & Validation | End-to-end data flow testing |
+| 8–9 | Report Writing | Academic report draft |
+| 10 | Final Presentation | Demonstration video and project defense |
 
 ---
 
-## Technical Tools
+## 12. Tools and Technologies
 
-- **Arduino IDE / PlatformIO**
-- **TensorFlow Lite Micro**
-- **ThingSpeak IoT Analytics**
-- **Tinkercad / Draw.io** (for circuit and data flow diagrams)
-- **GitHub** for version control
-- **Python** (for data preprocessing and training)
-
----
-
-## Security and Ethics
-
-- No personal or sensitive data collected.  
-- Complies with **data minimization** and **privacy-by-design** principles.  
-- The project aligns with **sustainable development goals** (SDG 6: Clean Water and Sanitation) by promoting water conservation through automated and data-driven irrigation control. It also follows the principles of Responsible IoT design, ensuring transparency, accessibility, and low-cost scalability.
-- Designed considering **accessibility, inclusion, and low-cost scalability**.
+- **Arduino IDE / PlatformIO** — firmware development  
+- **TensorFlow Lite Micro** — TinyML model deployment  
+- **ThingSpeak IoT Analytics** — cloud storage and visualization  
+- **Tinkercad / Draw.io** — circuit and diagram design  
+- **GitHub** — version control and documentation  
+- **Python** — data preprocessing and model training  
 
 ---
 
-## License
+## 13. Security and Ethics
 
-MIT License — see `LICENSE` for details.  
-You may reuse this code and documentation for academic or research purposes with proper attribution.
+- No personal or sensitive data are collected.  
+- Implements **data minimization** and **privacy-by-design** principles.  
+- Aligns with **UN Sustainable Development Goal 6 (Clean Water and Sanitation)** by promoting responsible water use through automated control.  
+- Follows **Responsible IoT design** principles ensuring transparency, accessibility, and scalability.
 
 ---
 
-## Academic Context
+## 14. License
 
-York St John University  
-**Module:** COM6017M – *The Internet of Things (Level 6)*  
+Licensed under the **MIT License**.  
+This project may be reused for educational or research purposes with appropriate citation.
+
+---
+
+## 15. Academic Context
+
+**Institution:** York St John University  
+**Module:** *The Internet of Things (Level 6)*  
 **Project Type:** Individual IoT + Edge AI Artefact + Technical Report  
-**Deadline:** 16 January 2026  
-
----
+**Submission Deadline:** 16 January 2026  
