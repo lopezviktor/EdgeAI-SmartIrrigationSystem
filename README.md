@@ -1,5 +1,5 @@
 # 🌱 Smart Irrigation System – IoT + Edge AI (TinyML)
-![Architecture Overview](docs/diagrams/system_context_diagram.png)
+![Architecture Overview](docs/diagrams/system_context_diagram.drawio.png)
 
 
 In regions affected by water scarcity, traditional irrigation systems often rely on fixed schedules or manual control, leading to significant water waste. This project proposes a low-cost, intelligent irrigation solution that combines IoT sensing, Edge AI inference, and cloud-based monitoring to achieve efficient and autonomous water management.
