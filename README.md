@@ -138,7 +138,7 @@ Responsibilities:
 
 ---
 
-## 🧑‍💻 Technical Tools
+## Technical Tools
 
 - **Arduino IDE / PlatformIO**
 - **TensorFlow Lite Micro**
@@ -149,7 +149,7 @@ Responsibilities:
 
 ---
 
-## 🔐 Security and Ethics
+## Security and Ethics
 
 - No personal or sensitive data collected.  
 - Complies with **data minimization** and **privacy-by-design** principles.  
@@ -158,14 +158,14 @@ Responsibilities:
 
 ---
 
-## 📄 License
+## License
 
 MIT License — see `LICENSE` for details.  
 You may reuse this code and documentation for academic or research purposes with proper attribution.
 
 ---
 
-## 🏫 Academic Context
+## Academic Context
 
 York St John University  
 **Module:** COM6017M – *The Internet of Things (Level 6)*  
