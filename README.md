@@ -1,7 +1,16 @@
 # 🌱 Smart Irrigation System – IoT + Edge AI (TinyML)
+![Architecture Overview](docs/system_context_diagram.png)
+
+
+In regions affected by water scarcity, traditional irrigation systems often rely on fixed schedules or manual control, leading to significant water waste. This project proposes a low-cost, intelligent irrigation solution that combines IoT sensing, Edge AI inference, and cloud-based monitoring to achieve efficient and autonomous water management.
 
 This project implements a **Smart Irrigation System** using **IoT** and **Edge Artificial Intelligence (TinyML)** to optimize water usage in agricultural environments.  
 It integrates **Arduino UNO**, **ESP32**, and **ThingSpeak Cloud** to make intelligent decisions about watering needs in real time.
+
+![Arduino](https://img.shields.io/badge/Arduino-UNO%20R4%20WiFi-blue)
+![ESP32](https://img.shields.io/badge/ESP32-Gateway-orange)
+![TinyML](https://img.shields.io/badge/EdgeAI-TensorFlowLiteMicro-green)
+![ThingSpeak](https://img.shields.io/badge/Cloud-ThingSpeak-blue)
 
 ---
 
@@ -30,7 +39,7 @@ It integrates **Arduino UNO**, **ESP32**, and **ThingSpeak Cloud** to make intel
 | **Sensors** | 2× Soil Moisture Sensors, DHT22, LDR | Environmental data acquisition |
 | **Actuator** | Peristaltic Water Pump | Executes watering action |
 | **Power** | 5V DC Power Supply | Supplies pump and microcontrollers |
-| **Connectivity** | UART, WiFi | Local and cloud communication |
+| **Connectivity** | UART (M2M), WiFi (Cloud)	Local Machine-to-Machine communication between Arduino UNO R4 WiFi and ESP32 Gateway, and WiFi uplink to ThingSpeak Cloud. |
 | **Cloud** | ThingSpeak | IoT data analytics and dashboard |
 
 ---
@@ -153,7 +162,7 @@ Responsibilities:
 
 - No personal or sensitive data collected.  
 - Complies with **data minimization** and **privacy-by-design** principles.  
-- Promotes **sustainability and water conservation** through automation.  
+- The project aligns with **sustainable development goals** (SDG 6: Clean Water and Sanitation) by promoting water conservation through automated and data-driven irrigation control. It also follows the principles of Responsible IoT design, ensuring transparency, accessibility, and low-cost scalability.
 - Designed considering **accessibility, inclusion, and low-cost scalability**.
 
 ---
