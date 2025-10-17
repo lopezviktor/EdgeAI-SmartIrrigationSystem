@@ -47,7 +47,12 @@ By integrating low-cost sensors, **Edge AI inference** on **Arduino UNO R4 WiFi*
   <img src="docs/diagrams/data_flow_diagram.drawio.png" alt="Data Flow Diagram" width="70%">
 </p>
 
-### 4.3 Components
+### 4.3 Hardware Architecture
+<p align="center">
+  <img src="docs/diagrams/hardware_architecture.png" alt="Hardware Architecture Diagram" width="70%">
+</p>
+
+### 4.4 Components
 
 | Category | Component | Description |
 |-----------|------------|-------------|
