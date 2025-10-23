@@ -35,3 +35,10 @@ data/*.bak
 
 # Modelos generados
 models/*.tmp
+
+# Secrets
+firmware/**/secrets.h
+firmware/_secrets/*
+firmware/**/arduino_secrets.h
+firmware/**/config.json
+!firmware/_secrets/secrets_template.h
