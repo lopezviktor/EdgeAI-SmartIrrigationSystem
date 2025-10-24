@@ -1,0 +1,12 @@
+# Include Directory – Header Files
+
+This folder contains the **header files (`.h`)** used across the ESP32 Gateway firmware.
+
+These files define constants, configuration parameters, and function declarations shared between source files.
+
+## Contents
+- **`secrets.h`** → Stores private credentials such as Wi-Fi SSID, password, and ThingSpeak API key (excluded from GitHub via `.gitignore`).
+- **`config.h`** *(optional)* → Global configuration (UART baud rate, HTTP interval, etc.) if needed.
+
+## Purpose
+Centralize all definitions and declarations to ensure modular and maintainable code.

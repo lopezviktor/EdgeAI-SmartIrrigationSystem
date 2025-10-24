@@ -1,0 +1,15 @@
+# Test Directory – PlatformIO Unit Tests
+
+This folder contains **unit or integration tests** for validating the ESP32 Gateway firmware.
+
+## Purpose
+To verify that individual modules (e.g., Wi-Fi connection, HTTP upload, UART communication) work correctly before full system integration.
+
+## Planned Tests
+- **Wi-Fi connectivity test** → Ensures connection to local network.
+- **ThingSpeak upload test** → Verifies successful HTTP 200 responses.
+- **UART parsing test** → Validates data integrity from Arduino UNO.
+
+Tests can be executed using the PlatformIO Test Runner:
+```bash
+pio test -e mhetesp32devkit

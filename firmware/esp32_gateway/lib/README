@@ -1,0 +1,19 @@
+# Lib Directory – Custom Libraries
+
+This folder is reserved for **project-specific libraries** that extend or modularize functionality of the ESP32 Gateway firmware.
+
+Each library should have its own subfolder structure:
+
+lib/
+├── WiFiManager/
+│    └── src/
+│         ├── WiFiManager.cpp
+│         └── WiFiManager.h
+└── README
+
+## Possible future use
+- Custom UART communication library between Arduino UNO and ESP32.
+- Helper module for parsing sensor data and building ThingSpeak payloads.
+- MQTT client module (if protocol is added in later iterations).
+
+Currently, no custom libraries are implemented.

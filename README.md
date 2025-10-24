@@ -104,21 +104,24 @@ By integrating low-cost sensors, **Edge AI inference** on **Arduino UNO R4 WiFi*
 
 ## 8. Firmware Structure
 
+The `firmware` directory contains two independent but connected modules:
+
 ### 8.1 Arduino UNO R4 WiFi (Edge Node)
-**Path:** `/firmware/arduino/`
+**Path:** `/firmware/arduino_edge/`
 
 Responsibilities:
-- Acquire sensor readings.  
-- Execute TinyML inference.  
-- Transmit data and inference results to ESP32 via UART.
+- Acquire sensor and environmental readings.  
+- Execute TinyML inference locally (classify “Water” / “No Water”).  
+- Control the peristaltic pump via GPIO output.  
+- Transmit sensor values and inference results to the ESP32 gateway via UART.
 
 ### 8.2 ESP32 (Communication Gateway)
-**Path:** `/firmware/esp32/`
+**Path:** `/firmware/esp32_gateway/`
 
 Responsibilities:
-- Receive and parse UART packets.  
-- Manage WiFi connection and HTTPS POST requests.  
-- Upload telemetry to ThingSpeak Cloud.
+- Receive and parse UART packets from Arduino UNO R4 WiFi.  
+- Manage Wi-Fi connectivity and HTTPS communication.  
+- Upload telemetry and AI predictions to ThingSpeak Cloud for visualization.
 
 ---
 
