@@ -1,36 +1,31 @@
-// /firmware/arduino/main.ino
-#include <DHT.h>
-#define DHTPIN 7
-#define DHTTYPE DHT22
-#define PUMP_PIN 8
-
-DHT dht(DHTPIN, DHTTYPE);
+// Arduino UNO — Simulated sensor producer (USB Serial for now)
+// CSV: SOIL1,SOIL2,TEMP_C,HUMID,LDR,DECISION
 
 void setup() {
-  Serial.begin(115200);   // UART to ESP32
-  pinMode(PUMP_PIN, OUTPUT);
-  dht.begin();
+  Serial.begin(115200);
+  delay(400);
+  Serial.println(F("UNO: simulated producer ready"));
+  randomSeed(analogRead(A0));
+}
+
+int inferIrrigate(int s1, int s2, float t, float h, int ldr) {
+  // Placeholder for TinyML decision
+  return (s1 > 600 || s2 > 600) ? 1 : 0;
 }
 
 void loop() {
-  int soil1 = analogRead(A0);
-  int soil2 = analogRead(A1);
-  int ldr   = analogRead(A2);
-  float t = dht.readTemperature();
-  float h = dht.readHumidity();
+  int soil1 = random(450, 750);
+  int soil2 = random(430, 740);
+  float temp = random(180, 300) / 10.0;   // 18.0–30.0 ºC
+  float hum  = random(350, 750) / 10.0;   // 35–75 %
+  int ldr    = random(200, 900);          // raw
+  int dec    = inferIrrigate(soil1, soil2, temp, hum, ldr);
 
-  // Threshold demo (ajusta después de calibrar)
-  bool irrigate = (soil1 < 500 || soil2 < 500);
+  // CSV line
+  char buf[96];
+  snprintf(buf, sizeof(buf), "%d,%d,%.2f,%.2f,%d,%d\n",
+           soil1, soil2, temp, hum, ldr, dec);
 
-  digitalWrite(PUMP_PIN, irrigate ? HIGH : LOW);
-
-  // Telemetry packet to ESP32
-  Serial.print("S1:"); Serial.print(soil1);
-  Serial.print(",S2:"); Serial.print(soil2);
-  Serial.print(",L:");  Serial.print(ldr);
-  Serial.print(",T:");  Serial.print(t);
-  Serial.print(",H:");  Serial.print(h);
-  Serial.print(",IRR:"); Serial.println(irrigate ? 1 : 0);
-
-  delay(2000);
+  Serial.print(buf);  // for now via USB; later we'll send via UART to ESP32
+  delay(5000);
 }

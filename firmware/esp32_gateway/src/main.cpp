@@ -8,6 +8,10 @@
 #define SEND_PERIOD_MS  16000
 #define ENABLE_UART     false
 
+#define UART_RX_PIN     16
+#define UART_TX_PIN     17
+HardwareSerial UART2(2);
+
 // ==== Utils ====
 
 int parseIntValue (const String& data, const String& key) {
@@ -22,6 +26,28 @@ float parseFloatValue(const String& data, const String& key) {
   start += key.length() + 1;
   int end = data.indexOf(",", start); if (end == -1) end = data.length();
   return data.substring(start, end).toFloat();
+}
+
+bool parseCsvLine(const String& line, int& s1, int& s2, int& l, float& t, float& h, int& irr) {
+  int part = 0, last = 0;
+  String p[6];
+  for (int i = 0; i < line.length(); ++i) {
+    char c = line[i];
+    if (c == ',' || c == '\n' || c == '\r') {
+      if (part < 6) p[part++] = line.substring(last, i);
+      last = i + 1;
+    }
+  }
+  if (last < line.length() && part < 6) p[part++] = line.substring(last);
+  if (part != 6) return false;
+
+  s1 = p[0].toInt();
+  s2 = p[1].toInt();
+  t  = p[2].toFloat();
+  h  = p[3].toFloat();
+  l  = p[4].toInt();
+  irr = p[5].toInt();
+  return true;
 }
 
 void connectWiFi() {
@@ -62,7 +88,9 @@ bool sendToThingSpeak(int s1, int s2, int l, float t, float h, int irr) {
 }
 
 void setup() {
-  Serial.begin(UART_BAUD);   
+  Serial.begin(UART_BAUD);
+  UART2.begin(UART_BAUD, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
+  randomSeed(esp_random());
   Serial.setTimeout(100);
   delay(300);
   connectWiFi();
@@ -73,27 +101,30 @@ void loop() {
 
   bool gotUart = false;
 #if ENABLE_UART
-  if (Serial.available()) {
-    String line = Serial.readStringUntil('\n');
+  if (UART2.available()) {
+    String line = UART2.readStringUntil('\n');
     if (line.length() > 0) {
-      s1  = parseIntValue(line, "S1");
-      s2  = parseIntValue(line, "S2");
-      l   = parseIntValue(line, "L");
-      t   = parseFloatValue(line, "T");
-      h   = parseFloatValue(line, "H");
-      irr = parseIntValue(line, "IRR");
-      gotUart = true;
-      Serial.println("UART line: " + line);
+      if (parseCsvLine(line, s1, s2, l, t, h, irr)) {
+        gotUart = true;
+        Serial.println("UART CSV: " + line);
+      } else {
+        Serial.println("CSV parse failed: " + line);
+      }
     }
   }
 #endif
 
-  if (!gotUart) {
-    s1 = 450; s2 = 520; l = 300; t = 22.8; h = 46.5; irr = 1;
-  }
+if (!gotUart) {
+  s1 = random(450, 750);
+  s2 = random(430, 740);
+  l  = random(200, 900);
+  t  = random(180, 300) / 10.0;   // 18.0–30.0 ºC
+  h  = random(350, 750) / 10.0;   // 35–75 %
+  irr = (s1 > 600 || s2 > 600) ? 1 : 0;
+}
 
   bool ok = sendToThingSpeak(s1, s2, l, t, h, irr);
-  if (!ok) Serial.println("Send failed (no 200).");
+  if (!ok) UART2.println("Send failed (no 200).");
 
   delay(SEND_PERIOD_MS);
 }
