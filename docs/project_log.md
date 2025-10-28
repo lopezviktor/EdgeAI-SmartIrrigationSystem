@@ -57,7 +57,19 @@ Next steps: export dataset, clean data in Python, and prepare TinyML model.
 
 ## 🔹 Week 3 – Dataset Preparation
 **Date:** 28–31 October 2025  
-- Exported dataset_raw.csv from ThingSpeak.  
-- Removed empty rows and outliers.  
-- Created dataset_clean.csv.  
-- Visualized correlations between soil moisture and irrigation decisions.  
+- Create and activated Python virtual environment(.venv) for data analysis.
+- Installed ipykernel, pandas, and matplotlib libraries.
+- Imported dataset from Thinkspeak (dataset_clean.csv)
+- Cleaned column names (field1-field6 -> soil1, soil2, tem_c, humidity, light, decision).
+- Removed non-numeric and missing values.
+- Performed Exploratory Data Analysis (EDA) in Jupyter Notebook:
+    - Generated descriptive statistics (df.describe())
+    - Verified balanced binary labels
+    - Plotted histograms for all sensor variables.
+    - Computed correlation matrix and heatmap between features and decision.
+    ![Feature Distributions](figures/eda_feature_distributions.png)
+    *Fugure - Feature Distribution of the simulated sensor dataset.*
+- Confirmed dataset is clean and structurally ready for TinyML preprocessing.
+**Reflection: 
+The EDA confirmed that the simulated data follows consistent numeric ranges and a balanced decision distribution.
+Although the dataset is syntethic, it sucesfully validates the data pipeline from Arduino -> ESP32 -> ThingSpeak -> Python, enabling the next step: normalization and baseline TinyML model training.
