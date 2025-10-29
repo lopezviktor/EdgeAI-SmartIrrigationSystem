@@ -57,6 +57,7 @@ Next steps: export dataset, clean data in Python, and prepare TinyML model.
 
 ## 🔹 Week 3 – Dataset Preparation
 **Date:** 28–31 October 2025  
+**Date: 28 October 2025**
 - Create and activated Python virtual environment(.venv) for data analysis.
 - Installed ipykernel, pandas, and matplotlib libraries.
 - Imported dataset from Thinkspeak (dataset_clean.csv)
@@ -73,3 +74,15 @@ Next steps: export dataset, clean data in Python, and prepare TinyML model.
 **Reflection: 
 The EDA confirmed that the simulated data follows consistent numeric ranges and a balanced decision distribution.
 Although the dataset is syntethic, it sucesfully validates the data pipeline from Arduino -> ESP32 -> ThingSpeak -> Python, enabling the next step: normalization and baseline TinyML model training.
+
+**Date: 29 October 2025**
+- Normalized sensor features to a [0, 1] range using 'MinMaxScler' and split the dataset into training (80%) and testin (20%) subsets.
+- Trained a baseline **Decision Tree Classifier** (max_depth=5) to simulate TinyML inference behavior.
+- Achieved 100% accuracy on the simulated dataset, as the model correctly captured the same logic used for label generation ('irrigate = 1 if soil > 600 or soil2 > 600').
+- Visualized the decision structure confirming that 'soil1' and 'soil2' dominate the irrigation rule.
+- Exported the trained model and scaler as '.joblib' files, along with metadata for future TensorFlow Lite conversion.
+
+![Decision Tree Baseline](figures/decision_tree_baseline%20.png)
+The baseline model validates the entire IoT -> Cloud -> tinyML pipeline.
+While the dataset is synthetic, the model perfectly reflects the irrigation logic, confirming data consistency and feature relevance.
+This phase completes the data preprocessing and establishes a foundaion for deploying the classifier on Arduino via tensorFlow Lite (TinyML comversion - next phase)
