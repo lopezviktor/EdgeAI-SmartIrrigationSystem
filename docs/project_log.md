@@ -76,11 +76,11 @@ The EDA confirmed that the simulated data follows consistent numeric ranges and 
 Although the dataset is syntethic, it sucesfully validates the data pipeline from Arduino -> ESP32 -> ThingSpeak -> Python, enabling the next step: normalization and baseline TinyML model training.
 
 **Date: 29 October 2025**
-- Normalized sensor features to a [0, 1] range using 'MinMaxScler' and split the dataset into training (80%) and testin (20%) subsets.
+- Normalized sensor features to a [0, 1] range using `MinMaxScler` and split the dataset into training (80%) and testin (20%) subsets.
 - Trained a baseline **Decision Tree Classifier** (max_depth=5) to simulate TinyML inference behavior.
-- Achieved 100% accuracy on the simulated dataset, as the model correctly captured the same logic used for label generation ('irrigate = 1 if soil > 600 or soil2 > 600').
-- Visualized the decision structure confirming that 'soil1' and 'soil2' dominate the irrigation rule.
-- Exported the trained model and scaler as '.joblib' files, along with metadata for future TensorFlow Lite conversion.
+- Achieved 100% accuracy on the simulated dataset, as the model correctly captured the same logic used for label generation (`irrigate = 1 if soil > 600 or soil2 > 600`).
+- Visualized the decision structure confirming that `soil1` and `soil2` dominate the irrigation rule.
+- Exported the trained model and scaler as `.joblib` files, along with metadata for future TensorFlow Lite conversion.
 
 ![Decision Tree Baseline](figures/decision_tree_baseline%20.png)
 The baseline model validates the entire IoT -> Cloud -> tinyML pipeline.
@@ -88,7 +88,7 @@ While the dataset is synthetic, the model perfectly reflects the irrigation logi
 This phase completes the data preprocessing and establishes a foundaion for deploying the classifier on Arduino via tensorFlow Lite (TinyML comversion - next phase)
 
 **Date: 30 October 2025**
-- Exported 'baseline_decision_tree' rules to C++ format using Python function 'emit_rules_as_cpp()'.
+- Exported `baseline_decision_tree` rules to C++ format using Python function `emit_rules_as_cpp()`.
 - Generated the header file `predict_need_water.h` containing the decision logic (if/else structure).
 - Created `scaler.h` implementing Min-Max normalization with `DATA_MIN` and `DATA_MAX` arrays based on dataset statistics.
 - Integrated both headers into the Arduino firmware (`arduino_edge.ino`) to enable on-device inference without external ML libraries.
