@@ -86,3 +86,21 @@ Although the dataset is syntethic, it sucesfully validates the data pipeline fro
 The baseline model validates the entire IoT -> Cloud -> tinyML pipeline.
 While the dataset is synthetic, the model perfectly reflects the irrigation logic, confirming data consistency and feature relevance.
 This phase completes the data preprocessing and establishes a foundaion for deploying the classifier on Arduino via tensorFlow Lite (TinyML comversion - next phase)
+
+**Date: 30 October 2025**
+- Exported 'baseline_decision_tree' rules to C++ format using Python function 'emit_rules_as_cpp()'.
+- Generated the header file `predict_need_water.h` containing the decision logic (if/else structure).
+- Created `scaler.h` implementing Min-Max normalization with `DATA_MIN` and `DATA_MAX` arrays based on dataset statistics.
+- Integrated both headers into the Arduino firmware (`arduino_edge.ino`) to enable on-device inference without external ML libraries.
+- Successfully compiled and uploaded to Arduino UNO R4 WiFi.
+- Verified live sensor readings:
+S1:288,S2:231,T:20.2,H:65.2,L:283,PRED:0
+confirming that the model runs locally and produces binary irrigation predictions (`0 = no irrigation`, `1 = irrigation`).
+- Performed sensor calibration and debugging of the DHT22 module; replaced defective sensor and confirmed stable temperature/humidity readings.
+- Added serial telemetry output (`S1,S2,T,H,L,PRED`) for UART communication with the ESP32 gateway.
+
+🧠 **Reflection:**  
+This week concludes the TinyML and Edge AI phase.  
+The decision-tree classifier was successfully deployed on the Arduino UNO R4 and performs local inference in real time.  
+The device now operates autonomously—collecting, normalizing, and classifying sensor data without cloud dependency—meeting the Edge AI objectives for latency reduction and offline resilience.  
+Next step: integrate UART communication with the ESP32 to upload telemetry and predictions to ThingSpeak Cloud.
