@@ -1,3 +1,5 @@
+#include <tflm_arduino.h>
+
 // /firmware/arduino/main.ino
 #include <DHT.h>
 #define DHTPIN 7
