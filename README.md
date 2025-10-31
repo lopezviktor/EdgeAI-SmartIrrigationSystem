@@ -4,7 +4,8 @@
 
 This project implements a **Smart Irrigation System** that leverages **Internet of Things (IoT)** and **Edge Artificial Intelligence (TinyML)** technologies to automate and optimize the watering process in diverse environments — from small private gardens to large agricultural fields.  
 
-The system continuously monitors environmental and soil conditions through low-cost sensors and performs on-device inference using **TinyML models** deployed on an **Arduino UNO R4 WiFi**.  
+The system continuously monitors environmental and soil conditions through low-cost sensors and performs local inference on a **Rasberrry Pi Edge AI node** using a trained decision-tree model (or TinyML equivalent), while the **Arduino UNO R4** handles sensing and actuation and the **ESP32** manages cloud transmission to ThingSpeak.
+  
 Based on the prediction, it controls the irrigation mechanism autonomously while transmitting sensor data to the cloud via an **ESP32 Gateway** for visualization and analysis on **ThingSpeak Cloud**.  
 
 By combining **local decision-making (Edge AI)** and **cloud-based analytics**, this architecture enables efficient, scalable, and sustainable water management with minimal human intervention.
@@ -18,7 +19,7 @@ Such approaches fail to adapt to real-time environmental conditions such as soil
 
 This project proposes the design and implementation of a **Smart Irrigation System** based on **IoT and Edge Artificial Intelligence (TinyML)**.  
 The system monitors environmental variables and autonomously decides the optimal watering action using local inference, without continuous cloud dependence.  
-By integrating low-cost sensors, **Edge AI inference** on **Arduino UNO R4 WiFi**, and **cloud-based analytics** through **ThingSpeak**, the system provides a scalable solution applicable to both **small-scale home gardens** and **large agricultural environments**, ensuring **water efficiency and healthy plant growth**.
+By integrating low-cost sensors, **Edge AI inference** on **Raspberry Pi Edge AI node**, and **cloud-based analytics** through **ThingSpeak**, the system provides a scalable solution applicable to both **small-scale home gardens** and **large agricultural environments**, ensuring **water efficiency and healthy plant growth**.
 
 
 ---
@@ -56,35 +57,39 @@ By integrating low-cost sensors, **Edge AI inference** on **Arduino UNO R4 WiFi*
 
 | Category | Component | Description |
 |-----------|------------|-------------|
-| **Microcontrollers** | Arduino UNO R4 WiFi, ESP32 | Edge processing and communication gateway |
-| **Sensors** | 2× Soil Moisture Sensors, DHT22, LDR | Environmental and soil condition sensing |
-| **Actuator** | Peristaltic Water Pump | Controls irrigation based on AI decision |
-| **Power Supply** | 5V / 12V DC Adapter | Provides power to sensors, controllers, and pump |
-| **Connectivity** | UART (M2M), WiFi (Cloud) | Local serial link between Arduino UNO R4 WiFi and ESP32; WiFi uplink to ThingSpeak Cloud |
-| **Cloud Platform** | ThingSpeak | IoT data analytics, visualization, and dashboards |
+| **Microcontrollers / Compute Nodes** | Arduino UNO R4 WiFi, Raspberry Pi (Edge AI), ESP32 (Cloud Gateway) | Distributed IoT architecture: Arduino = sensing & actuation, Raspberry Pi = Edge AI inference, ESP32 = ThingSpeak upload |
+| **Sensors** | 2× Soil Moisture Sensors, DHT22, LDR | Environmental and soil condition sensing |
+| **Actuator** | Peristaltic Water Pump | Controls irrigation based on Edge AI prediction from Raspberry Pi |
+| **Power Supply** | 5 V / 12 V DC Adapter | Provides power to sensors, controllers and pump |
+| **Connectivity** | USB Serial (Arduino ↔ Raspberry Pi), UART or Wi‑Fi (Raspberry Pi ↔ ESP32) | Local wired M2M communication for data and commands; ESP32 handles wireless cloud link |
+| **Cloud Platform** | ThingSpeak | IoT data analytics, visualization and dashboards via ESP32 Gateway |
 
 ---
 
 ## 5. Data Flow Description
 
 1. Environmental sensors collect **soil moisture**, **temperature**, and **light intensity** data.  
-2. The **Arduino UNO R4 WiFi** preprocesses and performs **TinyML inference**, classifying the state as “water” or “no water.”  
-3. The decision and raw sensor readings are transmitted via **UART (M2M)** to the **ESP32 gateway**.  
-4. The **ESP32** sends the data to **ThingSpeak Cloud** using HTTPS.  
-5. ThingSpeak visualizes the data and AI predictions in real time through its dashboard interface.  
-6. Optional: Additional cloud analytics and efficiency metrics can be implemented.
+2. The **Arduino UNO R4** sends raw sensor readings via **USB Serial** to the **Raspberry Pi Edge AI node**.  
+3. The **Raspberry Pi** applies **Min–Max normalization**, performs **Edge AI inference** (decision tree / TinyML model), and sends back pump control commands (`P1` = ON / `P0` = OFF) to the Arduino.  
+4. The **Raspberry Pi** forwards the complete telemetry frame (`S1,S2,T,H,L,PRED`) to the **ESP32 gateway** through **UART or Wi-Fi**.  
+5. The **ESP32** uploads the data to **ThingSpeak Cloud** using HTTPS, enabling real-time monitoring and historical analysis.  
+6. ThingSpeak visualizes environmental parameters and AI predictions in its dashboard interface.
 
 ---
 
 ## 6. Edge AI (TinyML)
 
-- The model was trained on a **custom dataset** of environmental parameters stored in `/data/dataset.csv`.  
+- The Edge AI inference is now executed on a **Raspberry Pi Edge AI node**, which receives raw sensor data from the Arduino via USB Serial.  
+- The Pi applies **Min–Max normalization** (same parameters used during training) and performs inference using a **Decision Tree** or **TinyML (TFLite)** model exported from the Python environment.  
+- The trained model was developed on a **custom dataset** of environmental parameters stored in `/data/dataset.csv`.  
 - **Classification goal:**  
   - `0 → No Water`  
   - `1 → Water`  
-- **Model pipeline:**  
-  Trained using TensorFlow → converted to TensorFlow Lite → quantized for **TensorFlow Lite Micro** → deployed on Arduino UNO R4 WiFi.  
-- The inference is executed locally on-device, ensuring **low latency**, **offline operation**, and **data privacy**.
+- The inference output (`PRED`) is used to control the irrigation pump through serial commands sent back to the Arduino (`P1` = ON / `P0` = OFF).  
+- This design ensures:  
+  - **Low latency** and **offline operation** via local inference.  
+  - **Modular scalability**, since the Pi can run Python (sklearn/TFLite) models and even retrain or update them autonomously.  
+  - **Energy efficiency**, as the Arduino only performs sensing and actuation.
 
 ---
 
@@ -106,22 +111,32 @@ By integrating low-cost sensors, **Edge AI inference** on **Arduino UNO R4 WiFi*
 
 The `firmware` directory contains two independent but connected modules:
 
-### 8.1 Arduino UNO R4 WiFi (Edge Node)
+### 8.1 Arduino UNO R4 WiFi (Sensor & Actuator Node)
 **Path:** `/firmware/arduino_edge/`
 
 Responsibilities:
-- Acquire sensor and environmental readings.  
-- Execute TinyML inference locally (classify “Water” / “No Water”).  
-- Control the peristaltic pump via GPIO output.  
-- Transmit sensor values and inference results to the ESP32 gateway via UART.
+- Acquire raw sensor and environmental readings (soil moisture, temperature, humidity, light).  
+- Transmit sensor frames via **USB Serial** to the Raspberry Pi Edge AI node.  
+- Receive pump control commands (`P1` / `P0`) from the Raspberry Pi and activate or deactivate the peristaltic pump accordingly.  
+- Provide serial feedback confirming pump state.
 
 ### 8.2 ESP32 (Communication Gateway)
 **Path:** `/firmware/esp32_gateway/`
 
 Responsibilities:
-- Receive and parse UART packets from Arduino UNO R4 WiFi.  
+- Receive complete telemetry frames (`S1,S2,T,H,L,PRED`) from the Raspberry Pi via UART or Wi-Fi.  
 - Manage Wi-Fi connectivity and HTTPS communication.  
-- Upload telemetry and AI predictions to ThingSpeak Cloud for visualization.
+- Upload telemetry and AI predictions to **ThingSpeak Cloud** for visualization.
+
+### 8.3 Raspberry Pi (Edge AI Node)
+**Path:** `/raspberry/`
+
+Responsibilities:
+- Receive raw sensor readings from the Arduino UNO R4 via **USB Serial**.  
+- Apply **Min–Max scaling** and perform **Edge AI inference** using a trained decision-tree or TinyML model.  
+- Send control commands (`P1` / `P0`) back to the Arduino based on inference results.  
+- Forward full telemetry to the ESP32 gateway for cloud upload.  
+- Optionally run as a background `systemd` service on boot for autonomous operation.
 
 ---
 
