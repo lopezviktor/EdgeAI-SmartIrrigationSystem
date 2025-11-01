@@ -1,6 +1,6 @@
 # Project Development Log – Smart Irrigation System (IoT + Edge AI)
 
-## 🧩 Context
+## Context
 York St John University – Module COM6017M: The Internet of Things  
 Student: Victor López  
 Supervisor: Dr. Aminu Usman  
@@ -27,13 +27,13 @@ Credits: 20 (Portfolio Assessment – 2000 words report + artefact)
 - Created documentation: `dataset_description.md` and TinyML dataset structure.  
 - Left the system running to collect continuous random data (approx. 1,000+ entries per day).  
 
-🧠 **Reflection:**  
+**Reflection:**  
 The cloud pipeline works reliably. Data transmission frequency limited to 16 s to comply with ThingSpeak free-tier API restrictions.  
 Next steps: export dataset, clean data in Python, and prepare TinyML model.
 
 ---
 
-## 🧩 Upcoming Tasks
+## Upcoming Tasks
 - Export CSV from ThingSpeak (dataset_raw.csv)  
 - Clean and normalize data (dataset_clean.csv)  
 - Perform exploratory analysis (EDA)  
@@ -42,7 +42,7 @@ Next steps: export dataset, clean data in Python, and prepare TinyML model.
 
 ---
 
-## 🗂️ Files Created So Far
+## Files Created So Far
 | File | Purpose |
 |------|----------|
 | `tinkercad_circuit_complete.png` | Circuit simulation |
@@ -57,11 +57,12 @@ Next steps: export dataset, clean data in Python, and prepare TinyML model.
 
 ## 🔹 Week 3 – Dataset Preparation
 **Date:** 28–31 October 2025  
+
 **Date: 28 October 2025**
-- Create and activated Python virtual environment(.venv) for data analysis.
+- Create and activated Python virtual environment(`.venv`) for data analysis.
 - Installed ipykernel, pandas, and matplotlib libraries.
-- Imported dataset from Thinkspeak (dataset_clean.csv)
-- Cleaned column names (field1-field6 -> soil1, soil2, tem_c, humidity, light, decision).
+- Imported dataset from Thingspeak (dataset_clean.csv)
+- Cleaned column names (field1-field6 -> soil1, soil2, temp, humidity, light, decision).
 - Removed non-numeric and missing values.
 - Performed Exploratory Data Analysis (EDA) in Jupyter Notebook:
     - Generated descriptive statistics (df.describe())
@@ -70,22 +71,22 @@ Next steps: export dataset, clean data in Python, and prepare TinyML model.
     - Computed correlation matrix and heatmap between features and decision.
     ![Feature Distributions](figures/eda_feature_distributions.png)
     *Fugure - Feature Distribution of the simulated sensor dataset.*
-- Confirmed dataset is clean and structurally ready for TinyML preprocessing.
+- The dataset was confirmed to be clear and structurally ready for TinyML preprocessing.
 **Reflection: 
 The EDA confirmed that the simulated data follows consistent numeric ranges and a balanced decision distribution.
-Although the dataset is syntethic, it sucesfully validates the data pipeline from Arduino -> ESP32 -> ThingSpeak -> Python, enabling the next step: normalization and baseline TinyML model training.
+Although the dataset is syntethic, it still successfully validates the complete data pipeline from Arduino -> ESP32 -> ThingSpeak -> Python, enabling the next step of normalization and TinyML training.
 
 **Date: 29 October 2025**
-- Normalized sensor features to a [0, 1] range using `MinMaxScler` and split the dataset into training (80%) and testin (20%) subsets.
+- Normalized sensor features to a [0, 1] range using `MinMaxScler` and split the dataset into training (80%) and testing (20%) subsets.
 - Trained a baseline **Decision Tree Classifier** (max_depth=5) to simulate TinyML inference behavior.
-- Achieved 100% accuracy on the simulated dataset, as the model correctly captured the same logic used for label generation (`irrigate = 1 if soil > 600 or soil2 > 600`).
+- Achieved 100% accuracy on the simulated dataset, as the model correctly captured the same logic used for label generation (`irrigate = 1 if soil1 > 600 or soil2 > 600`).
 - Visualized the decision structure confirming that `soil1` and `soil2` dominate the irrigation rule.
 - Exported the trained model and scaler as `.joblib` files, along with metadata for future TensorFlow Lite conversion.
 
 ![Decision Tree Baseline](figures/decision_tree_baseline%20.png)
-The baseline model validates the entire IoT -> Cloud -> tinyML pipeline.
+The baseline model validates the entire IoT -> Cloud -> TinyML pipeline.
 While the dataset is synthetic, the model perfectly reflects the irrigation logic, confirming data consistency and feature relevance.
-This phase completes the data preprocessing and establishes a foundaion for deploying the classifier on Arduino via tensorFlow Lite (TinyML comversion - next phase)
+This phase completes the data preprocessing and establishes a foundation for deploying the classifier on Arduino via TensorFlow Lite (TinyML comversion - next phase)
 
 **Date: 30 October 2025**
 - Exported `baseline_decision_tree` rules to C++ format using Python function `emit_rules_as_cpp()`.
@@ -94,13 +95,19 @@ This phase completes the data preprocessing and establishes a foundaion for depl
 - Integrated both headers into the Arduino firmware (`arduino_edge.ino`) to enable on-device inference without external ML libraries.
 - Successfully compiled and uploaded to Arduino UNO R4 WiFi.
 - Verified live sensor readings:
-S1:288,S2:231,T:20.2,H:65.2,L:283,PRED:0
+S1:288, S2:231, T:20.2, H:65.2, L:283, PRED:0
 confirming that the model runs locally and produces binary irrigation predictions (`0 = no irrigation`, `1 = irrigation`).
 - Performed sensor calibration and debugging of the DHT22 module; replaced defective sensor and confirmed stable temperature/humidity readings.
 - Added serial telemetry output (`S1,S2,T,H,L,PRED`) for UART communication with the ESP32 gateway.
 
-🧠 **Reflection:**  
+**Reflection:**  
 This week concludes the TinyML and Edge AI phase.  
 The decision-tree classifier was successfully deployed on the Arduino UNO R4 and performs local inference in real time.  
 The device now operates autonomously—collecting, normalizing, and classifying sensor data without cloud dependency—meeting the Edge AI objectives for latency reduction and offline resilience.  
 Next step: integrate UART communication with the ESP32 to upload telemetry and predictions to ThingSpeak Cloud.
+This successful implementation on Arduino establishes the baseline for migrating the Edge AI inference to a Raspberry Pi node in the next development phase, where higher computational capacity and logging capabilities will be leveraged.
+---
+End of Week 3 - TinyML Edge AI successfully running on Arduino UNO R4
+
+## 🔹 Week 4 - Edge AI Deployment and System Integration
+**Date:** 1-7 November 2025
