@@ -1,0 +1,14 @@
+serial:
+  port: "${SERIAL_PORT}"
+  baud: ${BAUD_RATE}
+
+model:
+  path: "${MODEL_PATH}"
+  threshold: ${THRESHOLD}
+
+thingspeak:
+  url: "${THINGSPEAK_URL}"
+  api_key: "${THINGSPEAK_API_KEY}"
+
+logging:
+  level: "${LOG_LEVEL}"
