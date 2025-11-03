@@ -92,6 +92,9 @@ void loop() {
     s1 = 450; s2 = 520; l = 300; t = 22.8; h = 46.5; irr = 1;
   }
 
+  Serial.printf("{\"soil1\": %d, \"soil2\": %d, \"temp\": %.2f, \"hum\": %.2f, \"light\": %d, \"irrigation\": %d}\n",
+              s1, s2, t, h, l, irr);
+
   bool ok = sendToThingSpeak(s1, s2, l, t, h, irr);
   if (!ok) Serial.println("Send failed (no 200).");
 
