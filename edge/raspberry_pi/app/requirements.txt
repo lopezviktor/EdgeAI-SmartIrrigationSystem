@@ -1,0 +1,7 @@
+tflite-runtime
+numpy
+pyserial
+python-dotenv
+requests
+pyYAML
+
