@@ -110,4 +110,45 @@ This successful implementation on Arduino establishes the baseline for migrating
 End of Week 3 - TinyML Edge AI successfully running on Arduino UNO R4
 
 ## 🔹 Week 4 - Edge AI Deployment and System Integration
-**Date:** 1-7 November 2025
+**Date:** 1–7 November 2025  
+- Installed and configured the Raspberry Pi as the new Edge AI node for running local TinyML inference, replacing the Arduino UNO’s limited computation.  
+- Structured the directory `edge/raspberry_pi/` with modular subfolders (`app/`, `config/`, `model/`, `system/`) to follow clean software architecture practices.  
+- Migrated the TinyML model (`baseline_dense.tflite`) and scaler (`minmax_scaler_keras.joblib`) into the Raspberry Pi environment.  
+- Set up a dedicated Python virtual environment (`.venv-tflite`) and installed required dependencies (`numpy`, `joblib`, `tflite_runtime`, later replaced by `tensorflow-macos` for testing on macOS).  
+- Implemented and tested the script `inference_test.py`, capable of loading the TFLite model, applying normalization, and executing local inference to predict the irrigation decision (`WATER_ON` / `WATER_OFF`).  
+- Resolved import and compatibility issues with TensorFlow Lite runtime on macOS, ensuring smooth fallback execution.  
+- Validated the complete inference process using simulated sensor readings, confirming consistency between the model output and the expected decision logic.  
+- Verified correct usage of the final scaler (`minmax_scaler_keras.joblib` – 6-feature pipeline including `soil_max`).  
+
+**Results:**  
+- Successful local inference on the Raspberry Pi using the 6-feature input vector `[soil1, soil2, soil_max, temp_c, humidity, light]`.  
+- Model prediction verified with stable output:  
+
+[RESULT] Model raw output: [[0.006]]
+[RESULT] Decision: WATER_OFF
+
+- This confirms that the TinyML model and scaler are aligned, and the Raspberry Pi can now perform autonomous inference.  
+
+**Reflection:**  
+This phase marks the transition from microcontroller-level inference to a more capable Edge AI platform (Raspberry Pi).  
+The system now supports faster inference, local processing, and future scalability (e.g., data logging, OTA updates, or advanced models).  
+Next steps involve enabling UART communication between the Raspberry Pi and ESP32 for real-time data exchange.
+
+---
+
+## 🔹 Week 5 – UART Integration and Communication Bridge
+**Date:** 11–17 November 2025  
+- Created new Git branch `feat/uart-pi-bridge` derived from `feat/edge-on-raspberry` to isolate UART-related development.  
+- Added new module `edge/raspberry_pi/app/uart_service.py`, implementing a serial communication bridge between the Raspberry Pi and ESP32/Arduino.  
+- Defined and documented a custom UART protocol:  
+- **Incoming (from ESP32):** `SOIL1=<f>,SOIL2=<f>,TEMP=<f>,HUM=<f>,LIGHT=<f>`  
+- **Processing:** The Raspberry Pi computes `soil_max = max(soil1, soil2)` and runs local inference using the 6-feature TinyML model.  
+- **Outgoing (to ESP32):** Sends `WATER_ON` or `WATER_OFF` decision via UART response.  
+- Implemented modular Python code for serial reading, parsing, inference, and reply transmission.  
+- Verified branch and PR workflow: opened **draft pull request** (base: `feat/edge-on-raspberry`) following best Git practices.  
+- Planned hardware configuration: enable UART interface on Raspberry Pi (`/dev/serial0`), set baud rate (9600), and prepare TX/RX/GND wiring for upcoming integration test.  
+
+**Reflection:**  
+This week introduces the communication layer connecting the Edge AI node (Raspberry Pi) and the IoT gateway (ESP32).  
+With the UART bridge in place, the system moves toward real-time interaction—allowing the Pi to classify sensor data locally and transmit decisions for cloud synchronization and actuator control.  
+Next week will focus on enabling UART in the Raspberry Pi, conducting loopback tests, and validating end-to-end serial communication between both devices.
