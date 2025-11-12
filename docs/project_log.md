@@ -147,6 +147,8 @@ Next steps involve enabling UART communication between the Raspberry Pi and ESP3
 - Implemented modular Python code for serial reading, parsing, inference, and reply transmission.  
 - Verified branch and PR workflow: opened **draft pull request** (base: `feat/edge-on-raspberry`) following best Git practices.  
 - Planned hardware configuration: enable UART interface on Raspberry Pi (`/dev/serial0`), set baud rate (9600), and prepare TX/RX/GND wiring for upcoming integration test.  
+- Verified UART hardware communication (loopback test successful on /dev/serial0 at 9600 bps).  
+  Raspberry Pi is now ready for real connection with the ESP32.
 
 **Reflection:**  
 This week introduces the communication layer connecting the Edge AI node (Raspberry Pi) and the IoT gateway (ESP32).  
