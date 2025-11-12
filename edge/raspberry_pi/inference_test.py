@@ -38,13 +38,47 @@ if os.path.exists(_SCALER_PATH):
 _MODEL_PATH = "model/model.tflite"
 
 
-def load_interpreter(model_path: str):
-    """Load and allocate tensors for a TFLite interpreter."""
-    print(f"[INFO] Loading TFLite model: {model_path}")
-    interpreter = tflite.Interpreter(model_path=model_path)
-    interpreter.allocate_tensors()
-    return interpreter
+# ---- Interpreter cache (add this) ----
+import threading
 
+_VERBOSE = False
+_INTERP = None
+_INPUT_INDEX = None
+_OUTPUT_INDEX = None
+_INIT_LOCK = threading.Lock()
+
+def set_verbose(flag: bool):
+    global _VERBOSE
+    _VERBOSE = bool(flag)
+
+def _load_interpreter_once(model_path: str = "model/model.tflite"):
+    """Create and allocate a single TFLite interpreter (singleton)."""
+    global _INTERP, _INPUT_INDEX, _OUTPUT_INDEX
+    if _INTERP is not None:
+        return
+    with _INIT_LOCK:
+        if _INTERP is not None:
+            return
+        if _VERBOSE:
+            print(f"[INFO] Loading TFLite model: {model_path}")
+        _INTERP = tflite.Interpreter(model_path=model_path)
+        _INTERP.allocate_tensors()
+        in_details = _INTERP.get_input_details()
+        out_details = _INTERP.get_output_details()
+        _INPUT_INDEX = in_details[0]["index"]
+        _OUTPUT_INDEX = out_details[0]["index"]
+
+def predict(x_scaled_np):
+    """
+    x_scaled_np: np.ndarray shape (1, 6) float32 (already scaled).
+    return: np.ndarray shape (1, 1) float32
+    """
+    _load_interpreter_once()
+    _INTERP.set_tensor(_INPUT_INDEX, x_scaled_np.astype("float32"))
+    _INTERP.invoke()
+    y = _INTERP.get_tensor(_OUTPUT_INDEX)
+    return y
+# -------------------------------------
 
 def preprocess(sample: np.ndarray) -> np.ndarray:
     """
@@ -55,26 +89,29 @@ def preprocess(sample: np.ndarray) -> np.ndarray:
         return _SCALER.transform(sample).astype(np.float32)
     return sample.astype(np.float32)
 
-
 def predict(sample: np.ndarray) -> np.ndarray:
     """
-    Run a forward pass and return the raw model output.
-    For a binary classifier, this is usually a single sigmoid probability.
+    Run a forward pass using the cached TFLite interpreter.
+    - sample: np.ndarray con shape (1, 6) o (6,) en el orden:
+      [soil1, soil2, temp_c, humidity, light]
+      (si pasas (6,), se remodela a (1, 6))
+    - Devuelve: np.ndarray shape (1, 1) float32 (probabilidad / score)
     """
-    interpreter = load_interpreter(_MODEL_PATH)
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
+    # Asegura forma (1, 6)
+    if sample.ndim == 1:
+        sample = sample.reshape(1, -1)
 
-    # Sanity print
-    print(f"[INFO] Model input details: {input_details}")
-    print(f"[INFO] Model output details: {output_details}")
+    # 1) Preprocesa (aplica scaler si existe)
+    x = preprocess(sample).astype(np.float32)
 
-    x = preprocess(sample)
-    interpreter.set_tensor(input_details[0]["index"], x)
-    interpreter.invoke()
-    y = interpreter.get_tensor(output_details[0]["index"])
+    # 2) Carga intérprete una sola vez (cache)
+    _load_interpreter_once(_MODEL_PATH)
+
+    # 3) Inferencia
+    _INTERP.set_tensor(_INPUT_INDEX, x)
+    _INTERP.invoke()
+    y = _INTERP.get_tensor(_OUTPUT_INDEX)
     return y
-
 
 def decision_from_output(y: np.ndarray, threshold: float = 0.5) -> str:
     """

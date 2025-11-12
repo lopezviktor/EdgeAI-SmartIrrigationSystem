@@ -13,6 +13,8 @@
 import time
 import serial
 import numpy as np
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from inference_test import predict, decision_from_output
 
 PORT = "/dev/serial0"
