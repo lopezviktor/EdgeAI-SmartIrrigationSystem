@@ -19,14 +19,15 @@ struct SensorState
 };
 
 SensorState g_state = {
-    /* soil1 */ 800.0f,
-    /* soil2 */ 820.0f,
-    /* temp  */ 21.5f,
-    /* hum   */ 70.0f,
-    /* light */ 200,
+    /* soil1    */ 800.0f,
+    /* soil2    */ 820.0f,
+    /* temp     */ 21.5f,
+    /* hum      */ 70.0f,
+    /* light    */ 200,
     /* dryPhase */ false,
-    /* tick */ 0};
+    /* tick     */ 0};
 
+// Update the synthetic sensors to simulate "wet" and "dry" situations
 void updateSyntheticSensors()
 {
   g_state.tick++;
@@ -79,6 +80,9 @@ void setup()
     }
   }
 
+  // Set a timeout for Bluetooth reads so readStringUntil() does not block forever
+  SerialBT.setTimeout(200); // 200 ms Bluetooth read timeout
+
   Serial.println("Bluetooth SPP started successfully.");
   Serial.println("Device name: SIS-ESP32-GW");
   Serial.println("Waiting for Raspberry Pi to connect over BT...");
@@ -86,28 +90,88 @@ void setup()
 
 void loop()
 {
-  // Update synthetic sensor state (toggle wet/dry every few cycles)
-  updateSyntheticSensors();
+  // --- 1) Periodic synthetic sensor data sent to Raspberry Pi over Bluetooth ---
 
-  // Build a telemetry line similar to Arduino UART format:
-  // S1:<value>,S2:<value>,T:<value>,H:<value>,L:<value>
-  char buffer[128];
-  snprintf(
-      buffer,
-      sizeof(buffer),
-      "S1:%.1f,S2:%.1f,T:%.1f,H:%.1f,L:%d",
-      g_state.soil1,
-      g_state.soil2,
-      g_state.temp,
-      g_state.hum,
-      g_state.light);
+  static unsigned long lastSend = 0;
+  const unsigned long SEND_INTERVAL_MS = 2000; // send every 2 seconds
 
-  // Send over Bluetooth to Raspberry Pi
-  SerialBT.println(buffer);
+  unsigned long now = millis();
 
-  // Also print to USB serial for debugging
-  Serial.print("[ESP32] Sent over BT: ");
-  Serial.println(buffer);
+  if (now - lastSend >= SEND_INTERVAL_MS)
+  {
+    lastSend = now;
 
-  delay(3000); // every 3 seconds
+    // Update synthetic sensor values (no real sensors yet)
+    updateSyntheticSensors();
+
+    // Build the payload exactly as Raspberry Pi expects
+    String payload = "S1:" + String(g_state.soil1, 1) +
+                     ",S2:" + String(g_state.soil2, 1) +
+                     ",T:" + String(g_state.temp, 1) +
+                     ",H:" + String(g_state.hum, 1) +
+                     ",L:" + String(g_state.light);
+
+    // Log to USB Serial (for debugging in Serial Monitor)
+    Serial.print("[ESP32] Sent over BT: ");
+    Serial.println(payload);
+
+    // Send over Bluetooth to Raspberry Pi (must end with newline)
+    SerialBT.print(payload);
+    SerialBT.print('\n'); // Ensure newline terminator
+    SerialBT.flush();     // Ensure data is pushed to BT stack
+  }
+
+  // --- 2) Read decisions sent by Raspberry Pi over Bluetooth SPP ---
+
+  // Check if there is any data available from Raspberry Pi
+  if (SerialBT.available() > 0)
+  {
+    int availableBytes = SerialBT.available();
+    Serial.print("[ESP32] Bytes available from BT: ");
+    Serial.println(availableBytes);
+
+    // Read a full line until newline character
+    String line = SerialBT.readStringUntil('\n');
+    line.trim(); // remove \r, spaces, etc.
+
+    Serial.print("[ESP32] Raw BT line: ");
+    Serial.println(line);
+
+    if (line.length() == 0)
+    {
+      // Nothing useful received, skip
+      return;
+    }
+
+    // Expected format: DECISION:WATER_ON or DECISION:WATER_OFF
+    if (line.startsWith("DECISION:"))
+    {
+      // "DECISION:" has 9 characters, extract the rest
+      String decision = line.substring(9);
+      decision.trim();
+
+      Serial.print("[ESP32] Parsed decision: ");
+      Serial.println(decision);
+
+      if (decision == "WATER_ON")
+      {
+        Serial.println("[ESP32] Activating pump (SIMULATED: WATER_ON).");
+        // TODO: Here you will control the real pump pin
+        // digitalWrite(PUMP_PIN, HIGH);
+      }
+      else if (decision == "WATER_OFF")
+      {
+        Serial.println("[ESP32] Stopping pump (SIMULATED: WATER_OFF).");
+        // digitalWrite(PUMP_PIN, LOW);
+      }
+      else
+      {
+        Serial.println("[ESP32] Unknown decision value received.");
+      }
+    }
+    else
+    {
+      Serial.println("[ESP32] BT line does not start with 'DECISION:'. Ignoring.");
+    }
+  }
 }
