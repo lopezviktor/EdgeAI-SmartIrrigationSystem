@@ -115,7 +115,14 @@ def main():
                     f"-> prob={prob:.3f}, decision={decision}"
                 )
 
-                # Next step (not yet): send decision back over BT to ESP32.
+                # Send decision back to ESP32 over Bluetooth
+                try:
+                    msg = f"DECISION:{decision}\n"
+                    ser.write(msg.encode("utf-8"))
+                    ser.flush()
+                    print(f"[BT-TX] Sent to ESP32: {msg.strip()}")
+                except Exception as e:
+                    print(f"[WARN] Could not send decision over BT: {e}")
 
             except ValueError as e:
                 print(f"[WARN] Could not parse telemetry: {e}")
