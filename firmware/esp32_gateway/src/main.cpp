@@ -1,58 +1,113 @@
 #include <Arduino.h>
+#include "BluetoothSerial.h"
 
-// UART2 hacia la Raspberry Pi
-// RX2 = GPIO16 (recibe lo que transmite la RPi: pin físico 8)
-// TX2 = GPIO17 (envía a la RPi: pin físico 10)
-HardwareSerial PiUart(2);
+// Global Bluetooth Serial instance
+BluetoothSerial SerialBT;
 
-void setup() {
-  Serial.begin(115200);
-  delay(200);
-  Serial.println("\n[ESP32] Boot");
+// Simple synthetic sensor model:
+// We alternate between a "WET" phase and a "DRY" phase
+// so that we can later see different patterns on the Raspberry Pi.
+struct SensorState
+{
+  float soil1;
+  float soil2;
+  float temp;
+  float hum;
+  int light;
+  bool dryPhase;
+  unsigned long tick;
+};
 
-  // UART con la Raspberry
-  PiUart.begin(9600, SERIAL_8N1, 16, 17);
-  delay(200);
-  Serial.println("[ESP32] UART2 ready @9600 (GPIO16=RX2, GPIO17=TX2)");
+SensorState g_state = {
+    /* soil1 */ 800.0f,
+    /* soil2 */ 820.0f,
+    /* temp  */ 21.5f,
+    /* hum   */ 70.0f,
+    /* light */ 200,
+    /* dryPhase */ false,
+    /* tick */ 0};
+
+void updateSyntheticSensors()
+{
+  g_state.tick++;
+
+  // Every 10 cycles, toggle between WET and DRY scenario
+  if (g_state.tick % 10 == 0)
+  {
+    g_state.dryPhase = !g_state.dryPhase;
+  }
+
+  if (!g_state.dryPhase)
+  {
+    // WET scenario: soil is moist, temp is lower, humidity higher, light moderate
+    g_state.soil1 = 800.0f + (g_state.tick % 10); // small variation
+    g_state.soil2 = 820.0f + (g_state.tick % 10);
+    g_state.temp = 21.5f + 0.1f * (g_state.tick % 5);
+    g_state.hum = 70.0f - 0.2f * (g_state.tick % 5);
+    g_state.light = 200 + (g_state.tick % 20);
+  }
+  else
+  {
+    // DRY scenario: soil is dry, temp higher, humidity lower, light higher
+    g_state.soil1 = 320.0f + (g_state.tick % 10);
+    g_state.soil2 = 310.0f + (g_state.tick % 10);
+    g_state.temp = 27.0f + 0.1f * (g_state.tick % 5);
+    g_state.hum = 40.0f - 0.2f * (g_state.tick % 5);
+    g_state.light = 700 + (g_state.tick % 30);
+  }
 }
 
-void loop() {
-  // *** Simulación de lecturas (cámbialas luego por sensores reales) ***
-  float soil1 = 45.0;
-  float soil2 = 52.0;
-  float tempC = 23.5;
-  float hum   = 48.0;
-  float light = 300.0;
+void setup()
+{
+  // USB serial for debugging
+  Serial.begin(115200);
+  delay(1000);
 
-  // Protocolo acordado (5 campos, la Pi calcula soil_max)
-  String line = "SOIL1=" + String(soil1, 1) +
-                ",SOIL2=" + String(soil2, 1) +
-                ",TEMP="  + String(tempC, 1) +
-                ",HUM="   + String(hum, 0) +
-                ",LIGHT=" + String(light, 0) + "\n";
+  Serial.println();
+  Serial.println("=== Smart Irrigation Gateway (ESP32, Bluetooth mode) ===");
+  Serial.println("Starting Bluetooth SPP...");
 
-  // Enviar a la Raspberry
-  PiUart.print(line);
-  Serial.print("[ESP32→RPi] "); Serial.print(line);
-
-  // Esperar respuesta de la Pi (WATER_ON / WATER_OFF)
-  uint32_t t0 = millis();
-  String resp;
-  while (millis() - t0 < 1500) {           // timeout ~1.5 s
-    while (PiUart.available()) {
-      char c = (char)PiUart.read();
-      if (c == '\n') { t0 = 0xFFFFFFFF; break; }
-      resp += c;
+  // Start Bluetooth in SPP mode with a recognizable device name
+  if (!SerialBT.begin("SIS-ESP32-GW"))
+  { // SIS = Smart Irrigation System
+    Serial.println("ERROR: Failed to start Bluetooth SPP!");
+    // If BT fails, stay here so we see the error
+    while (true)
+    {
+      Serial.println("Bluetooth init failed. Restart the board.");
+      delay(3000);
     }
-    if (t0 == 0xFFFFFFFF) break;
-    delay(5);
   }
 
-  if (resp.length()) {
-    Serial.print("[RPi→ESP32] "); Serial.println(resp);
-  } else {
-    Serial.println("[ESP32] (sin respuesta de la RPi)");
-  }
+  Serial.println("Bluetooth SPP started successfully.");
+  Serial.println("Device name: SIS-ESP32-GW");
+  Serial.println("Waiting for Raspberry Pi to connect over BT...");
+}
 
-  delay(2000);
+void loop()
+{
+  // Update synthetic sensor state (toggle wet/dry every few cycles)
+  updateSyntheticSensors();
+
+  // Build a telemetry line similar to Arduino UART format:
+  // S1:<value>,S2:<value>,T:<value>,H:<value>,L:<value>
+  char buffer[128];
+  snprintf(
+      buffer,
+      sizeof(buffer),
+      "S1:%.1f,S2:%.1f,T:%.1f,H:%.1f,L:%d",
+      g_state.soil1,
+      g_state.soil2,
+      g_state.temp,
+      g_state.hum,
+      g_state.light);
+
+  // Send over Bluetooth to Raspberry Pi
+  SerialBT.println(buffer);
+
+  // Also print to USB serial for debugging
+  Serial.print("[ESP32] Sent over BT: ");
+  Serial.println(buffer);
+
+  delay(3000); // every 3 seconds
 }
