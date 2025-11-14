@@ -9,7 +9,8 @@ Credits: 20 (Portfolio Assessment – 2000 words report + artefact)
 ---
 
 ## 🔹 Week 1 – System Setup and Planning
-**Date:** 16–22 October 2025  
+**Date:** 13–19 October 2025  
+
 - Defined project problem: inefficient water use in plant irrigation.  
 - Designed IoT architecture: sensors → Arduino UNO (TinyML) → UART → ESP32 → ThingSpeak Cloud → Pump.  
 - Created GitHub repo and README (English only).  
@@ -19,7 +20,8 @@ Credits: 20 (Portfolio Assessment – 2000 words report + artefact)
 ---
 
 ## 🔹 Week 2 – Cloud Integration (ThingSpeak)
-**Date:** 23–27 October 2025  
+**Date:** 20–26 October 2025  
+
 - Implemented UART-ready gateway on ESP32 with HTTP connection to ThingSpeak.  
 - Verified Wi-Fi connection and API integration (`HTTP Response: 200`).  
 - Generated simulated sensor data locally and uploaded to ThingSpeak (fields 1–6).  
@@ -31,16 +33,12 @@ Credits: 20 (Portfolio Assessment – 2000 words report + artefact)
 The cloud pipeline works reliably. Data transmission frequency limited to 16 s to comply with ThingSpeak free-tier API restrictions.  
 Next steps: export dataset, clean data in Python, and prepare TinyML model.
 
----
-
 ## Upcoming Tasks
 - Export CSV from ThingSpeak (dataset_raw.csv)  
 - Clean and normalize data (dataset_clean.csv)  
 - Perform exploratory analysis (EDA)  
 - Train TinyML binary classifier (“irrigate / not irrigate”)  
 - Integrate model with Arduino UNO via TensorFlow Lite
-
----
 
 ## Files Created So Far
 | File | Purpose |
@@ -56,12 +54,12 @@ Next steps: export dataset, clean data in Python, and prepare TinyML model.
 ---
 
 ## 🔹 Week 3 – Dataset Preparation
-**Date:** 28–31 October 2025  
+**Date:** 27 October – 2 November 2025  
 
-**Date: 28 October 2025**
-- Create and activated Python virtual environment(`.venv`) for data analysis.
+**Date: 27 October 2025**
+- Created and activated a Python virtual environment (`.venv`) for data analysis.
 - Installed ipykernel, pandas, and matplotlib libraries.
-- Imported dataset from Thingspeak (dataset_clean.csv)
+- Imported dataset from ThingSpeak (`dataset_clean.csv`).
 - Cleaned column names (field1-field6 -> soil1, soil2, temp, humidity, light, decision).
 - Removed non-numeric and missing values.
 - Performed Exploratory Data Analysis (EDA) in Jupyter Notebook:
@@ -72,11 +70,11 @@ Next steps: export dataset, clean data in Python, and prepare TinyML model.
     ![Feature Distributions](figures/eda_feature_distributions.png)
     *Fugure - Feature Distribution of the simulated sensor dataset.*
 - The dataset was confirmed to be clear and structurally ready for TinyML preprocessing.
-**Reflection: 
+**Reflection:**
 The EDA confirmed that the simulated data follows consistent numeric ranges and a balanced decision distribution.
 Although the dataset is syntethic, it still successfully validates the complete data pipeline from Arduino -> ESP32 -> ThingSpeak -> Python, enabling the next step of normalization and TinyML training.
 
-**Date: 29 October 2025**
+**Date: 28 October 2025**
 - Normalized sensor features to a [0, 1] range using `MinMaxScler` and split the dataset into training (80%) and testing (20%) subsets.
 - Trained a baseline **Decision Tree Classifier** (max_depth=5) to simulate TinyML inference behavior.
 - Achieved 100% accuracy on the simulated dataset, as the model correctly captured the same logic used for label generation (`irrigate = 1 if soil1 > 600 or soil2 > 600`).
@@ -106,11 +104,14 @@ The decision-tree classifier was successfully deployed on the Arduino UNO R4 and
 The device now operates autonomously—collecting, normalizing, and classifying sensor data without cloud dependency—meeting the Edge AI objectives for latency reduction and offline resilience.  
 Next step: integrate UART communication with the ESP32 to upload telemetry and predictions to ThingSpeak Cloud.
 This successful implementation on Arduino establishes the baseline for migrating the Edge AI inference to a Raspberry Pi node in the next development phase, where higher computational capacity and logging capabilities will be leveraged.
+
 ---
-End of Week 3 - TinyML Edge AI successfully running on Arduino UNO R4
+
+End of Week 3 – TinyML Edge AI successfully running on Arduino UNO R4.
 
 ## 🔹 Week 4 - Edge AI Deployment and System Integration
-**Date:** 1–7 November 2025  
+**Date:** 3–9 November 2025  
+
 - Installed and configured the Raspberry Pi as the new Edge AI node for running local TinyML inference, replacing the Arduino UNO’s limited computation.  
 - Structured the directory `edge/raspberry_pi/` with modular subfolders (`app/`, `config/`, `model/`, `system/`) to follow clean software architecture practices.  
 - Migrated the TinyML model (`baseline_dense.tflite`) and scaler (`minmax_scaler_keras.joblib`) into the Raspberry Pi environment.  
@@ -136,21 +137,55 @@ Next steps involve enabling UART communication between the Raspberry Pi and ESP3
 
 ---
 
-## 🔹 Week 5 – UART Integration and Communication Bridge
-**Date:** 11–17 November 2025  
-- Created new Git branch `feat/uart-pi-bridge` derived from `feat/edge-on-raspberry` to isolate UART-related development.  
-- Added new module `edge/raspberry_pi/app/uart_service.py`, implementing a serial communication bridge between the Raspberry Pi and ESP32/Arduino.  
-- Defined and documented a custom UART protocol:  
-- **Incoming (from ESP32):** `SOIL1=<f>,SOIL2=<f>,TEMP=<f>,HUM=<f>,LIGHT=<f>`  
-- **Processing:** The Raspberry Pi computes `soil_max = max(soil1, soil2)` and runs local inference using the 6-feature TinyML model.  
-- **Outgoing (to ESP32):** Sends `WATER_ON` or `WATER_OFF` decision via UART response.  
-- Implemented modular Python code for serial reading, parsing, inference, and reply transmission.  
-- Verified branch and PR workflow: opened **draft pull request** (base: `feat/edge-on-raspberry`) following best Git practices.  
-- Planned hardware configuration: enable UART interface on Raspberry Pi (`/dev/serial0`), set baud rate (9600), and prepare TX/RX/GND wiring for upcoming integration test.  
-- Verified UART hardware communication (loopback test successful on /dev/serial0 at 9600 bps).  
-  Raspberry Pi is now ready for real connection with the ESP32.
+## 🔹 Week 5 – Migration from UART to Bluetooth M2M (ESP32 ↔ Raspberry Pi)
+**Date:** 10–16 November 2025  
 
-**Reflection:**  
-This week introduces the communication layer connecting the Edge AI node (Raspberry Pi) and the IoT gateway (ESP32).  
-With the UART bridge in place, the system moves toward real-time interaction—allowing the Pi to classify sensor data locally and transmit decisions for cloud synchronization and actuator control.  
-Next week will focus on enabling UART in the Raspberry Pi, conducting loopback tests, and validating end-to-end serial communication between both devices.
+- Created new Git branch `feat/m2m-esp32-rpi-bluetooth` to migrate the communication layer from UART to Bluetooth SPP for cleaner, wireless M2M operation.  
+- Implemented a full Bluetooth Serial Port Profile (SPP) gateway on the ESP32 (`main.cpp`), including:
+  - Device name `SIS-ESP32-GW`
+  - Reconnection-safe SPP initialisation
+  - Periodic telemetry transmission simulating sensor data (`S1,S2,T,H,L`)
+  - Bluetooth RX handling for irrigation decisions from the Raspberry Pi  
+- Enabled Bluetooth SPP on the Raspberry Pi using `bluetoothctl` and persistent RFCOMM binding to `/dev/rfcomm0`.  
+- Added new Raspberry Pi module: `edge/raspberry_pi/bt_inference_service.py`, implementing:
+  - Continuous Bluetooth line reading  
+  - Telemetry parsing  
+  - Construction of the 6‑feature vector (`soil1, soil2, soil_mean, temp, hum, light`)  
+  - Real‑time inference using the TinyML TFLite model  
+  - Transmission of irrigation decisions (`DECISION:WATER_ON` / `DECISION:WATER_OFF`) back to the ESP32  
+- Updated `EdgeIrrigationModel` for stable inference inside the constrained Python 3.7 environment of the Raspberry Pi.  
+- Verified complete M2M loop (ESP32 → RPi → ESP32) with simulated data.  
+- Confirmed pump‑control simulation on ESP32 based on received decisions.  
+- Updated repository and Pull Requests to reflect Bluetooth‑based communication architecture.
+
+**Results:**  
+- Fully functional wireless communication bridge using Bluetooth SPP.  
+- Stable exchange rate of telemetry and decisions over `/dev/rfcomm0`.  
+- Verified bidirectional M2M loop:
+  - ESP32 → sends telemetry  
+  - RPi → parses + runs TFLite model + sends back decision  
+  - ESP32 → logs and simulates pump ON/OFF  
+Migrating from UART to Bluetooth improved modularity, safety, and simplified wiring.  
+This change modernises the M2M layer and enables future OTA updates or external devices to subscribe to telemetry wirelessly.  
+The Bluetooth link is now the backbone of the system, enabling a clean separation between sensing/actuation (ESP32) and inference (Raspberry Pi).
+
+---
+
+## 🔹 Week 6 – Full System Simulation & ThingSpeak Reintegration
+**Date:** 17–23 November 2025  
+
+- Began development of a full **simulated end‑to‑end pipeline**, using synthetic sensor values on ESP32 to emulate the final hardware setup (until pump, tube, and power supply arrive).  
+- Established continuous real‑time loop:
+  - ESP32 generates synthetic but dynamically changing sensor values  
+  - Raspberry Pi performs inferencing via Bluetooth  
+  - ESP32 receives decisions and logs pump behaviour (simulated)  
+- Planned reintegration of cloud upload:
+  - ESP32 to forward telemetry + RPi decision to ThingSpeak  
+  - Prepare new endpoint mapping for updated fields  
+- Reviewed hardware requirements for upcoming real‑world deployment (peristaltic pump, tubing, 12V PSU, relay, diode).  
+- Prepared documentation updates and identified diagrams requiring updates to reflect Bluetooth‑based architecture.
+
+**Next steps:**  
+- Add ThingSpeak HTTP integration to the new Bluetooth‑based ESP32 gateway.  
+- Test full loop with real sensors once the pump + power hardware arrives.  
+- Update architectural diagrams (SCD, DFD, Hardware) to reflect Bluetooth M2M.
