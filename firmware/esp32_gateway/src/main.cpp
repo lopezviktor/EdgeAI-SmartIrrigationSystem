@@ -1,8 +1,22 @@
 #include <Arduino.h>
 #include "BluetoothSerial.h"
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include "secrets.h"
 
 // Global Bluetooth Serial instance
 BluetoothSerial SerialBT;
+
+// WiFi credentials
+const char *ssid = WIFI_SSID;
+const char *password = WIFI_PASSWORD;
+
+// ThingSpeak
+const char *TS_API_KEY = "THINGSPEAK_KEY";
+const char *TS_URL = "TS_UPDATE_URL";
+
+// Irrigation decision: 0 = WATER_OFF, 1 = WATER_ON
+int decisionFlag = 0;
 
 // Simple synthetic sensor model:
 // We alternate between a "WET" phase and a "DRY" phase
@@ -58,9 +72,67 @@ void updateSyntheticSensors()
   }
 }
 
+// Connect to WiFi if not already connected
+void connectWiFiIfNeeded()
+{
+  if (WiFi.status() == WL_CONNECTED)
+    return;
+
+  Serial.println("[WiFi] Connecting...");
+  WiFi.begin(ssid, password);
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20)
+  {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    Serial.print("[WiFi] Connected. IP: ");
+    Serial.println(WiFi.localIP());
+  }
+  else
+  {
+    Serial.println("[WiFi] Failed to connect.");
+  }
+}
+
+// Upload sensor data and decision to ThingSpeak
+void uploadToThingSpeak()
+{
+  connectWiFiIfNeeded();
+
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("[TS] WiFi not connected, skipping upload");
+    return;
+  }
+
+  String url = String(TS_URL) + "?api_key=" + TS_API_KEY +
+               "&field1=" + String(g_state.soil1) +
+               "&field2=" + String(g_state.soil2) +
+               "&field3=" + String(g_state.temp) +
+               "&field4=" + String(g_state.hum) +
+               "&field5=" + String(g_state.light) +
+               "&field6=" + String(decisionFlag);
+
+  Serial.println("[TS] Uploading telemetry + decision");
+  Serial.println("[TS] URL: " + url);
+
+  HTTPClient http;
+  http.begin(url);
+  int httpCode = http.GET();
+  Serial.printf("[TS] Response: %d\n", httpCode);
+  http.end();
+}
+
 void setup()
 {
-  // USB serial for debugging
+  // USB serial
   Serial.begin(115200);
   delay(1000);
 
@@ -90,10 +162,11 @@ void setup()
 
 void loop()
 {
-  // --- 1) Periodic synthetic sensor data sent to Raspberry Pi over Bluetooth ---
-
   static unsigned long lastSend = 0;
-  const unsigned long SEND_INTERVAL_MS = 2000; // send every 2 seconds
+  static unsigned long lastTsUpload = 0;
+
+  const unsigned long SEND_INTERVAL_MS = 2000;    // send every 2 seconds
+  const unsigned long TS_UPLOAD_INTERVAL = 20000; // upload to ThingSpeak every 20 seconds
 
   unsigned long now = millis();
 
@@ -123,7 +196,6 @@ void loop()
 
   // --- 2) Read decisions sent by Raspberry Pi over Bluetooth SPP ---
 
-  // Check if there is any data available from Raspberry Pi
   if (SerialBT.available() > 0)
   {
     int availableBytes = SerialBT.available();
@@ -137,16 +209,8 @@ void loop()
     Serial.print("[ESP32] Raw BT line: ");
     Serial.println(line);
 
-    if (line.length() == 0)
+    if (line.length() > 0 && line.startsWith("DECISION:"))
     {
-      // Nothing useful received, skip
-      return;
-    }
-
-    // Expected format: DECISION:WATER_ON or DECISION:WATER_OFF
-    if (line.startsWith("DECISION:"))
-    {
-      // "DECISION:" has 9 characters, extract the rest
       String decision = line.substring(9);
       decision.trim();
 
@@ -155,23 +219,31 @@ void loop()
 
       if (decision == "WATER_ON")
       {
+        decisionFlag = 1;
         Serial.println("[ESP32] Activating pump (SIMULATED: WATER_ON).");
-        // TODO: Here you will control the real pump pin
-        // digitalWrite(PUMP_PIN, HIGH);
+        // In the future, this will just forward the command to the Arduino over UART.
       }
       else if (decision == "WATER_OFF")
       {
+        decisionFlag = 0;
         Serial.println("[ESP32] Stopping pump (SIMULATED: WATER_OFF).");
-        // digitalWrite(PUMP_PIN, LOW);
       }
       else
       {
         Serial.println("[ESP32] Unknown decision value received.");
       }
     }
-    else
+    else if (line.length() > 0)
     {
       Serial.println("[ESP32] BT line does not start with 'DECISION:'. Ignoring.");
     }
+  }
+
+  // --- 3) Periodically upload telemetry + decision to ThingSpeak ---
+
+  if (now - lastTsUpload >= TS_UPLOAD_INTERVAL)
+  {
+    lastTsUpload = now;
+    uploadToThingSpeak();
   }
 }
