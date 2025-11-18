@@ -12,8 +12,8 @@ const char *ssid = WIFI_SSID;
 const char *password = WIFI_PASSWORD;
 
 // ThingSpeak
-const char *TS_API_KEY = "THINGSPEAK_KEY";
-const char *TS_URL = "TS_UPDATE_URL";
+const char *TS_API_KEY = THINGSPEAK_KEY;
+const char *TS_URL = TS_UPDATE_URL;
 
 // Irrigation decision: 0 = WATER_OFF, 1 = WATER_ON
 int decisionFlag = 0;
