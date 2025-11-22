@@ -174,18 +174,54 @@ The Bluetooth link is now the backbone of the system, enabling a clean separatio
 ## 🔹 Week 6 – Full System Simulation & ThingSpeak Reintegration
 **Date:** 17–23 November 2025  
 
-- Began development of a full **simulated end‑to‑end pipeline**, using synthetic sensor values on ESP32 to emulate the final hardware setup (until pump, tube, and power supply arrive).  
-- Established continuous real‑time loop:
-  - ESP32 generates synthetic but dynamically changing sensor values  
-  - Raspberry Pi performs inferencing via Bluetooth  
-  - ESP32 receives decisions and logs pump behaviour (simulated)  
-- Planned reintegration of cloud upload:
-  - ESP32 to forward telemetry + RPi decision to ThingSpeak  
-  - Prepare new endpoint mapping for updated fields  
-- Reviewed hardware requirements for upcoming real‑world deployment (peristaltic pump, tubing, 12V PSU, relay, diode).  
-- Prepared documentation updates and identified diagrams requiring updates to reflect Bluetooth‑based architecture.
+During Week 6, the entire IoT + Edge AI architecture was successfully validated as a complete end-to-end system. Althoug the real pump hardware has not yet arrived, the full behaviour of the irrigation pipeline was reproduced through high-fidelity simulation: synthetic sensor generation on ESP32, Bluetooth based M2M communication with the Raspberry Pi, real time TinyML inference, and cloud telemetry upload to ThingSpeak.
 
-**Next steps:**  
-- Add ThingSpeak HTTP integration to the new Bluetooth‑based ESP32 gateway.  
-- Test full loop with real sensors once the pump + power hardware arrives.  
-- Update architectural diagrams (SCD, DFD, Hardware) to reflect Bluetooth M2M.
+Bluetooth M2M loop (ESP32 <-> Raspberry Pi)
+-	Activated the ESP32 gateway in Bluetooth SPP mode, transmitting synthetic sensor readings (soil1, soil2, temp, humidity, light) to emulate the final sensor array.
+-	Established a persistent RFCOMM binding on the Raspberry Pi (/dev/rfcomm0) to receive telemetry and return irrigation decisions wirelessly.
+-	Executed the finalised bt_inference_service.py, which:
+  -	Reads and parses incoming telemetry lines
+  -	Constructs the 6-feature vector required by the TinyML model
+  -	Loads the MinMax scaler and TFLite model
+  -	Performs real-time inference
+  -	Sends DECISION:WATER_ON or DECISION:WATER_OFF back to the ESP32
+-	Verified the full M2M loop:
+  -	ESP32 → RPi: telemetry over Bluetooth
+	-	RPi: inference + decision
+	-	RPi → ESP32: decision delivered
+	-	ESP32: pump control simulation printed as logs
+
+Result:
+A stable, wireless M2M architecture with low latency and correct inference behaviour. The ESP32 successfully parsed all decisions and simulated actuator control (Activating pump / Stopping pump).
+
+ThingSpeak Reintegration
+-	Integrated cloud upload into the new Bluetooth-based ESP32 gateway.
+-	Extended the HTTP payload to include the irrigation decision from the Raspberry Pi (field6).
+-	Achieved consistent uploads every 20 seconds, with HTTP Response: 200 confirming packet integrity.
+-	Validated real-time data flow through the ThingSpeak Data View, confirming correct values for all six fields.
+-	Configured updated visualisations in the dashboard.
+-	Field 6 displayed clear alternation between 0 and 1, matching dry/wet simulation cycles and TinyML predictions.
+
+Result:
+The cloud pipeline once again provides complete visibility into both raw telemetry and autonomous irrigation decisions.
+
+Preparation for Real Hardware Deployment
+-	Reviewed hardware requirements for pump integration (relay, wiring, flyback diode, 12V PSU, peristaltic pump).
+-	Defined GPIO pin for pump relay control on ESP32 (planned: GPIO 23).
+-	Added firmware logic for pump activation, currently simulated via serial logs until real hardware is connected.
+
+Documentation and Architecture Updates
+-	Updated the Data Flow Diagram (DFD) to reflect:
+-	UART telemetry from Arduino → ESP32
+-	Bluetooth SPP telemetry + decisions between ESP32 ↔ Raspberry Pi
+-	HTTP upload to ThingSpeak
+-	Identified remaining diagrams requiring revision (SCD and Hardware Architecture).
+-	Organised files in docs/diagrams/ and prepared for final architectural update in Week 7.
+
+Reflection
+
+Week 6 represents a major milestone: the complete Smart Irrigation System operates autonomously, from sensing and Bluetooth M2M inference to cloud synchronisation.
+Despite relying on synthetic values for now, the behaviour fully mirrors the intended real-world operation. The modular architecture (Arduino → ESP32 → Raspberry Pi → Cloud) is now stable, scalable, and ready for physical deployment once the pump and wiring components arrive.
+
+The successful reintegration of ThingSpeak, combined with real-time Edge AI inference and wireless communication, demonstrates the maturity of the system and sets the stage for final hardware integration and diagram refinement in Week 7.
+
