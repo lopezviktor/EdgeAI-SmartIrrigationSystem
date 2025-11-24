@@ -225,3 +225,73 @@ Despite relying on synthetic values for now, the behaviour fully mirrors the int
 
 The successful reintegration of ThingSpeak, combined with real-time Edge AI inference and wireless communication, demonstrates the maturity of the system and sets the stage for final hardware integration and diagram refinement in Week 7.
 
+## 🔹 Week 7 – Real Hardware Integration & Architecture Finalisation
+**Date:** 30 November 2025  
+
+Week 7 marks the transition from simulated operation to the first phase of real hardware deployment, incorporating the physical sensors, updated wiring and a fully revised firmware architecture. This phase also focused on aligning diagrams, cleaning the Arduino firmware, and preparing the complete IoT + Edge AI pipeline for operational testing with real sensor values.
+
+1. Arduino Hardware integration (Real Sensors + TIP122 Pump Driver)
+  - Installed soil moinsture sensors (A0, A1), DHT22 (digital pin 7), and LDR (A2) according to the updated harware pinout table.
+  - Cleaned the Arduino arduino_edge.ino firmware, removing all TinyML-related legacy files (predict_need_water.h, scaler.h, model_data.h)
+  - Updated the firmware to:
+    -	Read real sensor values.
+    -	Transmit telemetry via Serial1 (UART) to the ESP32 in a clean CSV-like format.
+    -	Receive pump commands (DECISION:WATER_ON / WATER_OFF) from the ESP32.
+    -	Control the pump via a TIP122 transistor and flyback diode (hardware soldering pending).
+  - Verified successfull compilation and UART transmission.
+
+Result: 
+Arduino now acts as a clean, dedicated sensors + actuator node, ready for a real deployment once the pump is soldered safely.
+
+2. Wiring & Pump Control Circuit (TIP122 Transistor Stage)
+  - Designed and verified the low-side switching motor-driving circuit using:
+    -	TIP122 NPN Darlington transistor
+    -	1N4007 flyback diode
+    -	1 kΩ base resistor
+    -	Shared GND between Arduino, ESP32, and PSU
+  - Partially assembled the circuit on a breadboard.
+  - Confirmed correct understanding of current flow and protective diode orientaion for inductive load suppression.
+
+Result: 
+Pump hardware is electrically prepared; final soldering will be completed prior to live motor testing.
+
+3. ESP32 Gateway Adjustments (UART from Arduino)
+  -	Adapted ESP32 firmware to accept incoming UART telemetry from the Arduino (instead of synthetic generation).
+  -	Confirmed stable parsing of lines in the form:
+    S1:<val>,S2:<val>,T:<val>,H:<val>,L:<val>
+  -	Forwarded this telemetry over Bluetooth SPP to the Raspberry Pi for inference.
+  -	Forwarded TinyML decisions back to the Arduino.
+
+Result:
+The full ESP32 gateway is now aligned with the final 3-tier physical pipeline:
+Arduino → ESP32 → Raspberry Pi
+
+4. Raspberry Pi Edge AI Confirmation
+	-	Re-tested the Bluetooth M2M service using the updated pipeline, ensuring telemetry from Arduino passes correctly through the ESP32 into /dev/rfcomm0.
+	-	Validated TFLite inference with real data formats.
+	-	Confirmed decision loop:
+	-	Telemetry → Inference → Decision → Back to ESP32 → Forward to Arduino.
+
+Result:
+Pi inference service is now fully compatible with the real hardware data flow.
+
+⸻
+
+5. Documentation & Diagrams Finalisation
+	-	Updated the hardware pinout table to replace the relay module with TIP122 transistor control.
+	-	Reviewed all diagrams:
+	-	DFD updated (UART Arduino→ESP32 + Bluetooth ESP32↔RPi + HTTP→ThingSpeak).
+	-	SCD & Hardware Architecture marked for final updates in Week 8.
+	-	Cleaned repository structure and ensured firmware directories reflect the final architecture.
+
+⸻
+
+Reflection
+
+Week 7 represents the consolidation phase where the simulated system evolved into a ready-to-deploy physical IoT solution.
+The Arduino now reads real sensors, the ESP32 routes data and decisions, and the Raspberry Pi performs live TinyML inference.
+The pump subsystem has been prepared electrically, awaiting safe soldering and final integration.
+
+The system is now poised for full real-world testing in Week 8, once the peristaltic pump is physically connected and the PSU wiring is completed.
+
+⸻
