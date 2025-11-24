@@ -4,6 +4,9 @@
 #include <HTTPClient.h>
 #include "secrets.h"
 
+// UART to Arduino (Hardware Serial1 on ESP32)
+HardwareSerial SerialToArduino(1);
+
 // Global Bluetooth Serial instance
 BluetoothSerial SerialBT;
 
@@ -136,6 +139,11 @@ void setup()
   Serial.begin(115200);
   delay(1000);
 
+  // UART to Arduino: RX = GPIO16, TX = GPIO17, baud 9600 (must match Arduino)
+  SerialToArduino.begin(9600, SERIAL_8N1, 16, 17);
+  Serial.println("[UART] SerialToArduino started at 9600 baud (RX=16, TX=17).");
+
+  // Bluetooth SPP
   Serial.println();
   Serial.println("=== Smart Irrigation Gateway (ESP32, Bluetooth mode) ===");
   Serial.println("Starting Bluetooth SPP...");
@@ -162,6 +170,14 @@ void setup()
 
 void loop()
 {
+  // --- Read any incoming telemetry from Arduino over UART and print it (debug only for now) ---
+  while (SerialToArduino.available() > 0)
+  {
+    char c = SerialToArduino.read();
+    Serial.print(c); // Echo raw UART data from Arduino to USB Serial Monitor
+  }
+
+  // --- Main logic: send telemetry over Bluetooth, receive decisions, upload to ThingSpeak ---
   static unsigned long lastSend = 0;
   static unsigned long lastTsUpload = 0;
 
