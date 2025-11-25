@@ -226,72 +226,69 @@ Despite relying on synthetic values for now, the behaviour fully mirrors the int
 The successful reintegration of ThingSpeak, combined with real-time Edge AI inference and wireless communication, demonstrates the maturity of the system and sets the stage for final hardware integration and diagram refinement in Week 7.
 
 ## 🔹 Week 7 – Real Hardware Integration & Architecture Finalisation
-**Date:** 30 November 2025  
+**Date:** 30 November – 6 December 2025  
 
-Week 7 marks the transition from simulated operation to the first phase of real hardware deployment, incorporating the physical sensors, updated wiring and a fully revised firmware architecture. This phase also focused on aligning diagrams, cleaning the Arduino firmware, and preparing the complete IoT + Edge AI pipeline for operational testing with real sensor values.
+**This week marked the transition from simulation to real hardware operation, with all major system components integrated and tested using actual sensor data and physical wiring. The focus was on finalising the firmware, wiring up the pump control circuit, and aligning all documentation and diagrams with the deployed architecture.**
 
-1. Arduino Hardware integration (Real Sensors + TIP122 Pump Driver)
-  - Installed soil moinsture sensors (A0, A1), DHT22 (digital pin 7), and LDR (A2) according to the updated harware pinout table.
-  - Cleaned the Arduino arduino_edge.ino firmware, removing all TinyML-related legacy files (predict_need_water.h, scaler.h, model_data.h)
-  - Updated the firmware to:
-    -	Read real sensor values.
-    -	Transmit telemetry via Serial1 (UART) to the ESP32 in a clean CSV-like format.
-    -	Receive pump commands (DECISION:WATER_ON / WATER_OFF) from the ESP32.
-    -	Control the pump via a TIP122 transistor and flyback diode (hardware soldering pending).
-  - Verified successfull compilation and UART transmission.
+Arduino Hardware Integration (Real Sensors + TIP122 Pump Driver)
+- Installed the real soil moisture sensors (A0, A1), DHT22 (digital pin 7), and LDR (A2) onto the breadboard, referencing the updated hardware pinout.
+- Cleaned and refactored the Arduino firmware (`arduino_edge.ino`):
+  - Removed all TinyML-related legacy code and headers (predict_need_water.h, scaler.h, etc).
+  - Streamlined code to:
+    - Read live sensor values.
+    - Transmit telemetry via Serial1 (UART) to the ESP32 in the format:  
+      `S1:<val>,S2:<val>,T:<val>,H:<val>,L:<val>`
+    - Receive pump commands (`DECISION:WATER_ON` or `DECISION:WATER_OFF`) from the ESP32.
+    - Control the pump using a TIP122 transistor and flyback diode (final soldering pending).
+- Verified successful compilation, upload, and UART transmission.
 
-Result: 
-Arduino now acts as a clean, dedicated sensors + actuator node, ready for a real deployment once the pump is soldered safely.
+**Result:**  
+Arduino now serves as a robust, dedicated sensor/actuator node, transmitting real sensor data and accepting actuator commands, ready for deployment as soon as the pump is soldered.
 
-2. Wiring & Pump Control Circuit (TIP122 Transistor Stage)
-  - Designed and verified the low-side switching motor-driving circuit using:
-    -	TIP122 NPN Darlington transistor
-    -	1N4007 flyback diode
-    -	1 kΩ base resistor
-    -	Shared GND between Arduino, ESP32, and PSU
-  - Partially assembled the circuit on a breadboard.
-  - Confirmed correct understanding of current flow and protective diode orientaion for inductive load suppression.
+Wiring & Pump Control Circuit (TIP122 Transistor Stage)
+- Designed and partially assembled the low-side switching circuit for pump control:
+  - TIP122 NPN Darlington transistor (motor driver)
+  - 1N4007 flyback diode (inductive load protection)
+  - 1kΩ base resistor
+  - Shared ground (GND) between Arduino, ESP32, and the 12V PSU
+- Breadboarded the circuit and double-checked current flow and diode orientation.
 
-Result: 
-Pump hardware is electrically prepared; final soldering will be completed prior to live motor testing.
+**Result:**  
+Pump control hardware is electrically prepared, with final soldering to be completed before live motor testing.
 
-3. ESP32 Gateway Adjustments (UART from Arduino)
-  -	Adapted ESP32 firmware to accept incoming UART telemetry from the Arduino (instead of synthetic generation).
-  -	Confirmed stable parsing of lines in the form:
-    S1:<val>,S2:<val>,T:<val>,H:<val>,L:<val>
-  -	Forwarded this telemetry over Bluetooth SPP to the Raspberry Pi for inference.
-  -	Forwarded TinyML decisions back to the Arduino.
+ESP32 Gateway Adjustments (UART from Arduino)
+- Modified ESP32 firmware to:
+  - Accept UART telemetry from the Arduino (replacing previous synthetic data).
+  - Parse incoming lines in the expected CSV format.
+  - Forward telemetry over Bluetooth SPP to the Raspberry Pi for inference.
+  - Relay irrigation decisions received from the Pi back to the Arduino.
+- Confirmed stable end-to-end data flow and proper parsing.
 
-Result:
-The full ESP32 gateway is now aligned with the final 3-tier physical pipeline:
-Arduino → ESP32 → Raspberry Pi
+**Result:**  
+ESP32 now functions as a reliable gateway between the Arduino and Raspberry Pi, supporting the final three-tier pipeline:  
+`Arduino → ESP32 → Raspberry Pi`
 
-4. Raspberry Pi Edge AI Confirmation
-	-	Re-tested the Bluetooth M2M service using the updated pipeline, ensuring telemetry from Arduino passes correctly through the ESP32 into /dev/rfcomm0.
-	-	Validated TFLite inference with real data formats.
-	-	Confirmed decision loop:
-	-	Telemetry → Inference → Decision → Back to ESP32 → Forward to Arduino.
+Raspberry Pi Edge AI Confirmation
+- Re-tested the Bluetooth M2M service with real sensor data from the Arduino.
+- Ensured the TFLite model and MinMax scaler processed the new data format without issues.
+- Verified the full decision loop:
+  - Telemetry (from Arduino) → Inference (on Pi) → Decision (to ESP32) → Actuation (on Arduino).
 
-Result:
-Pi inference service is now fully compatible with the real hardware data flow.
+**Result:**  
+The Pi inference service is fully compatible with live hardware data, completing the real-world M2M inference cycle.
 
-⸻
+Documentation & Diagram Updates
+- Updated hardware pinout tables to show TIP122 transistor replacing relay for pump control.
+- Updated the Data Flow Diagram (DFD) to reflect:
+  - UART telemetry: Arduino → ESP32
+  - Bluetooth SPP: ESP32 ↔ Raspberry Pi
+  - HTTP upload to ThingSpeak
+- Identified other diagrams (SCD, Hardware Architecture) requiring final revision in Week 8.
+- Cleaned and reorganised repository directories to match the final deployment structure.
 
-5. Documentation & Diagrams Finalisation
-	-	Updated the hardware pinout table to replace the relay module with TIP122 transistor control.
-	-	Reviewed all diagrams:
-	-	DFD updated (UART Arduino→ESP32 + Bluetooth ESP32↔RPi + HTTP→ThingSpeak).
-	-	SCD & Hardware Architecture marked for final updates in Week 8.
-	-	Cleaned repository structure and ensured firmware directories reflect the final architecture.
+**Reflection:**  
+Week 7 was the consolidation and deployment phase, transforming the simulated system into a physical IoT solution. The Arduino now reads real sensors and actuates the pump, the ESP32 acts as a robust gateway, and the Raspberry Pi delivers live TinyML inference. The pump control hardware is ready for final wiring and safety checks. All documentation and diagrams are being brought in line with the deployed system.
 
-⸻
-
-Reflection
-
-Week 7 represents the consolidation phase where the simulated system evolved into a ready-to-deploy physical IoT solution.
-The Arduino now reads real sensors, the ESP32 routes data and decisions, and the Raspberry Pi performs live TinyML inference.
-The pump subsystem has been prepared electrically, awaiting safe soldering and final integration.
-
-The system is now poised for full real-world testing in Week 8, once the peristaltic pump is physically connected and the PSU wiring is completed.
+The Smart Irrigation System is now positioned for full real-world testing in Week 8, pending final pump integration and PSU wiring.
 
 ⸻
