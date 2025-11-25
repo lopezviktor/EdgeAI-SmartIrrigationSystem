@@ -1,7 +1,13 @@
+import os
+import sys
 import serial
 import time
 
-from edge.raspberry_pi.core.edge_model import EdgeIrrigationModel
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.append(BASE_DIR)
+
+from core.edge_model import EdgeIrrigationModel
 
 # Bluetooth SPP reader + telemetry parser + TinyML inference.
 # It reads from /dev/rfcomm0 (ESP32 SPP), parses lines like:

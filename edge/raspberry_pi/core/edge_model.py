@@ -26,10 +26,12 @@ class EdgeIrrigationModel:
         model_path: str = "model/model.tflite",
         scaler_path: str = "model/scaler.joblib"
     ):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
 
-        model_full = os.path.join(base_dir, model_path)
-        scaler_full = os.path.join(base_dir, scaler_path)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(base_dir)
+
+        model_full = os.path.join(project_root, model_path)
+        scaler_full = os.path.join(project_root, scaler_path)
 
         print(f"[MODEL] Loading scaler from: {scaler_full}")
         self.scaler = load(scaler_full)
