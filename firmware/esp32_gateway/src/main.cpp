@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include "secrets.h"
+#include <cstdio>
 
 // UART to Arduino (Hardware Serial1 on ESP32)
 HardwareSerial SerialToArduino(1);
@@ -44,35 +45,27 @@ SensorState g_state = {
     /* dryPhase */ false,
     /* tick     */ 0};
 
-// Update the synthetic sensors to simulate "wet" and "dry" situations
-void updateSyntheticSensors()
+bool g_hasTelemetry = false; // becomes true once we parse at least one UART line from Arduino
+
+// Parse a telemetry line from Arduino in the form:
+// "S1:<val>,S2:<val>,T:<val>,H:<val>,L:<val>"
+// Returns true if parsing was successful and updates g_state.
+bool parseTelemetryLine(const String &line, SensorState &out)
 {
-  g_state.tick++;
+  float s1, s2, t, h;
+  int l;
 
-  // Every 10 cycles, toggle between WET and DRY scenario
-  if (g_state.tick % 10 == 0)
+  int matched = sscanf(line.c_str(), "S1:%f,S2:%f,T:%f,H:%f,L:%d", &s1, &s2, &t, &h, &l);
+  if (matched == 5)
   {
-    g_state.dryPhase = !g_state.dryPhase;
+    out.soil1 = s1;
+    out.soil2 = s2;
+    out.temp = t;
+    out.hum = h;
+    out.light = l;
+    return true;
   }
-
-  if (!g_state.dryPhase)
-  {
-    // WET scenario: soil is moist, temp is lower, humidity higher, light moderate
-    g_state.soil1 = 800.0f + (g_state.tick % 10); // small variation
-    g_state.soil2 = 820.0f + (g_state.tick % 10);
-    g_state.temp = 21.5f + 0.1f * (g_state.tick % 5);
-    g_state.hum = 70.0f - 0.2f * (g_state.tick % 5);
-    g_state.light = 200 + (g_state.tick % 20);
-  }
-  else
-  {
-    // DRY scenario: soil is dry, temp higher, humidity lower, light higher
-    g_state.soil1 = 320.0f + (g_state.tick % 10);
-    g_state.soil2 = 310.0f + (g_state.tick % 10);
-    g_state.temp = 27.0f + 0.1f * (g_state.tick % 5);
-    g_state.hum = 40.0f - 0.2f * (g_state.tick % 5);
-    g_state.light = 700 + (g_state.tick % 30);
-  }
+  return false;
 }
 
 // Connect to WiFi if not already connected
@@ -115,6 +108,12 @@ void uploadToThingSpeak()
     return;
   }
 
+  if (!g_hasTelemetry)
+  {
+    Serial.println("[TS] No telemetry from Arduino yet, skipping upload.");
+    return;
+  }
+
   String url = String(TS_URL) + "?api_key=" + TS_API_KEY +
                "&field1=" + String(g_state.soil1) +
                "&field2=" + String(g_state.soil2) +
@@ -141,6 +140,7 @@ void setup()
 
   // UART to Arduino: RX = GPIO16, TX = GPIO17, baud 9600 (must match Arduino)
   SerialToArduino.begin(9600, SERIAL_8N1, 16, 17);
+  SerialToArduino.setTimeout(50); // small timeout for readStringUntil on UART
   Serial.println("[UART] SerialToArduino started at 9600 baud (RX=16, TX=17).");
 
   // Bluetooth SPP
@@ -170,11 +170,37 @@ void setup()
 
 void loop()
 {
-  // --- Read any incoming telemetry from Arduino over UART and print it (debug only for now) ---
+  // --- Read any incoming telemetry from Arduino over UART, log it and update g_state ---
   while (SerialToArduino.available() > 0)
   {
-    char c = SerialToArduino.read();
-    Serial.print(c); // Echo raw UART data from Arduino to USB Serial Monitor
+    String line = SerialToArduino.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0)
+    {
+      continue;
+    }
+
+    Serial.print("[UART] From Arduino: ");
+    Serial.println(line);
+
+    if (parseTelemetryLine(line, g_state))
+    {
+      g_hasTelemetry = true;
+      Serial.print("[UART] Parsed telemetry -> S1=");
+      Serial.print(g_state.soil1);
+      Serial.print(", S2=");
+      Serial.print(g_state.soil2);
+      Serial.print(", T=");
+      Serial.print(g_state.temp);
+      Serial.print(", H=");
+      Serial.print(g_state.hum);
+      Serial.print(", L=");
+      Serial.println(g_state.light);
+    }
+    else
+    {
+      Serial.println("[UART] Failed to parse telemetry line, ignoring.");
+    }
   }
 
   // --- Main logic: send telemetry over Bluetooth, receive decisions, upload to ThingSpeak ---
@@ -190,24 +216,29 @@ void loop()
   {
     lastSend = now;
 
-    // Update synthetic sensor values (no real sensors yet)
-    updateSyntheticSensors();
+    if (!g_hasTelemetry)
+    {
+      // We have not yet received any real telemetry from Arduino; skip sending.
+      Serial.println("[ESP32] No telemetry from Arduino yet, skipping BT send.");
+    }
+    else
+    {
+      // Build the payload exactly as Raspberry Pi expects, using real sensor data from Arduino
+      String payload = "S1:" + String(g_state.soil1, 1) +
+                       ",S2:" + String(g_state.soil2, 1) +
+                       ",T:" + String(g_state.temp, 1) +
+                       ",H:" + String(g_state.hum, 1) +
+                       ",L:" + String(g_state.light);
 
-    // Build the payload exactly as Raspberry Pi expects
-    String payload = "S1:" + String(g_state.soil1, 1) +
-                     ",S2:" + String(g_state.soil2, 1) +
-                     ",T:" + String(g_state.temp, 1) +
-                     ",H:" + String(g_state.hum, 1) +
-                     ",L:" + String(g_state.light);
+      // Log to USB Serial (for debugging in Serial Monitor)
+      Serial.print("[ESP32] Sent over BT: ");
+      Serial.println(payload);
 
-    // Log to USB Serial (for debugging in Serial Monitor)
-    Serial.print("[ESP32] Sent over BT: ");
-    Serial.println(payload);
-
-    // Send over Bluetooth to Raspberry Pi (must end with newline)
-    SerialBT.print(payload);
-    SerialBT.print('\n'); // Ensure newline terminator
-    SerialBT.flush();     // Ensure data is pushed to BT stack
+      // Send over Bluetooth to Raspberry Pi (must end with newline)
+      SerialBT.print(payload);
+      SerialBT.print('\n'); // Ensure newline terminator
+      SerialBT.flush();     // Ensure data is pushed to BT stack
+    }
   }
 
   // --- 2) Read decisions sent by Raspberry Pi over Bluetooth SPP ---
