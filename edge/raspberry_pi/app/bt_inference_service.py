@@ -1,7 +1,7 @@
 import serial
 import time
 
-from edge_model import EdgeIrrigationModel
+from edge.raspberry_pi.core.edge_model import EdgeIrrigationModel
 
 # Bluetooth SPP reader + telemetry parser + TinyML inference.
 # It reads from /dev/rfcomm0 (ESP32 SPP), parses lines like:

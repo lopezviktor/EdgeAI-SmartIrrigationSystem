@@ -43,3 +43,5 @@ firmware/_secrets/*
 firmware/**/arduino_secrets.h
 firmware/**/config.json
 !firmware/_secrets/secrets_template.h
+
+.pio/
