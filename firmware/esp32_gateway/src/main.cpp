@@ -1,99 +1,296 @@
 #include <Arduino.h>
-#include <secrets.h>
+#include "BluetoothSerial.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include "secrets.h"
+#include <cstdio>
 
-// ==== Config ==== 
-#define UART_BAUD       115200
-#define SEND_PERIOD_MS  16000
-#define ENABLE_UART     false
+// UART to Arduino (Hardware Serial1 on ESP32)
+HardwareSerial SerialToArduino(1);
 
-// ==== Utils ====
+// Global Bluetooth Serial instance
+BluetoothSerial SerialBT;
 
-int parseIntValue (const String& data, const String& key) {
-  int start = data.indexOf(key + ":"); if (start == -1) return 0;
-  start += key.length() + 1;
-  int end = data.indexOf(",", start); if (end == -1) end = data.length();
-  return data.substring(start, end).toInt();
-}
+// WiFi credentials
+const char *ssid = WIFI_SSID;
+const char *password = WIFI_PASSWORD;
 
-float parseFloatValue(const String& data, const String& key) {
-  int start = data.indexOf(key + ":"); if (start == -1) return 0.0;
-  start += key.length() + 1;
-  int end = data.indexOf(",", start); if (end == -1) end = data.length();
-  return data.substring(start, end).toFloat();
-}
+// ThingSpeak
+const char *TS_API_KEY = THINGSPEAK_KEY;
+const char *TS_URL = TS_UPDATE_URL;
 
-void connectWiFi() {
-  Serial.print("Connecting to WiFi");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  int retries = 0;
-  while (WiFi.status() != WL_CONNECTED && retries < 60) { 
-    delay(500); Serial.print(".");
-    retries++;
+// Irrigation decision: 0 = WATER_OFF, 1 = WATER_ON
+int decisionFlag = 0;
+
+// Simple synthetic sensor model:
+// We alternate between a "WET" phase and a "DRY" phase
+// so that we can later see different patterns on the Raspberry Pi.
+struct SensorState
+{
+  float soil1;
+  float soil2;
+  float temp;
+  float hum;
+  int light;
+  bool dryPhase;
+  unsigned long tick;
+};
+
+SensorState g_state = {
+    /* soil1    */ 800.0f,
+    /* soil2    */ 820.0f,
+    /* temp     */ 21.5f,
+    /* hum      */ 70.0f,
+    /* light    */ 200,
+    /* dryPhase */ false,
+    /* tick     */ 0};
+
+bool g_hasTelemetry = false; // becomes true once we parse at least one UART line from Arduino
+
+// Parse a telemetry line from Arduino in the form:
+// "S1:<val>,S2:<val>,T:<val>,H:<val>,L:<val>"
+// Returns true if parsing was successful and updates g_state.
+bool parseTelemetryLine(const String &line, SensorState &out)
+{
+  float s1, s2, t, h;
+  int l;
+
+  int matched = sscanf(line.c_str(), "S1:%f,S2:%f,T:%f,H:%f,L:%d", &s1, &s2, &t, &h, &l);
+  if (matched == 5)
+  {
+    out.soil1 = s1;
+    out.soil2 = s2;
+    out.temp = t;
+    out.hum = h;
+    out.light = l;
+    return true;
   }
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("\nWiFi connected. IP: ");
+  return false;
+}
+
+// Connect to WiFi if not already connected
+void connectWiFiIfNeeded()
+{
+  if (WiFi.status() == WL_CONNECTED)
+    return;
+
+  Serial.println("[WiFi] Connecting...");
+  WiFi.begin(ssid, password);
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20)
+  {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    Serial.print("[WiFi] Connected. IP: ");
     Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("\nWiFi connection FAILED");
+  }
+  else
+  {
+    Serial.println("[WiFi] Failed to connect.");
   }
 }
 
-bool sendToThingSpeak(int s1, int s2, int l, float t, float h, int irr) {
-  if (WiFi.status() != WL_CONNECTED) connectWiFi();
-  if (WiFi.status() != WL_CONNECTED) return false;
+// Upload sensor data and decision to ThingSpeak
+void uploadToThingSpeak()
+{
+  connectWiFiIfNeeded();
+
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("[TS] WiFi not connected, skipping upload");
+    return;
+  }
+
+  if (!g_hasTelemetry)
+  {
+    Serial.println("[TS] No telemetry from Arduino yet, skipping upload.");
+    return;
+  }
+
+  String url = String(TS_URL) + "?api_key=" + TS_API_KEY +
+               "&field1=" + String(g_state.soil1) +
+               "&field2=" + String(g_state.soil2) +
+               "&field3=" + String(g_state.temp) +
+               "&field4=" + String(g_state.hum) +
+               "&field5=" + String(g_state.light) +
+               "&field6=" + String(decisionFlag);
+
+  Serial.println("[TS] Uploading telemetry + decision");
+  Serial.println("[TS] URL: " + url);
 
   HTTPClient http;
-  String url = String(TS_UPDATE_URL) +
-               "?api_key=" + THINGSPEAK_KEY +
-               "&field1=" + s1 +
-               "&field2=" + s2 +
-               "&field3=" + String(t, 2) +
-               "&field4=" + String(h, 2) +
-               "&field5=" + l +
-               "&field6=" + irr;
-
   http.begin(url);
-  int code = http.GET();
-  Serial.print("HTTP Response: "); Serial.println(code);
+  int httpCode = http.GET();
+  Serial.printf("[TS] Response: %d\n", httpCode);
   http.end();
-  return (code == 200);
 }
 
-void setup() {
-  Serial.begin(UART_BAUD);   
-  Serial.setTimeout(100);
-  delay(300);
-  connectWiFi();
-}
+void setup()
+{
+  // USB serial
+  Serial.begin(115200);
+  delay(1000);
 
-void loop() {
-  int s1, s2, l, irr; float t, h;
+  // UART to Arduino: RX = GPIO16, TX = GPIO17, baud 9600 (must match Arduino)
+  SerialToArduino.begin(9600, SERIAL_8N1, 16, 17);
+  SerialToArduino.setTimeout(50); // small timeout for readStringUntil on UART
+  Serial.println("[UART] SerialToArduino started at 9600 baud (RX=16, TX=17).");
 
-  bool gotUart = false;
-#if ENABLE_UART
-  if (Serial.available()) {
-    String line = Serial.readStringUntil('\n');
-    if (line.length() > 0) {
-      s1  = parseIntValue(line, "S1");
-      s2  = parseIntValue(line, "S2");
-      l   = parseIntValue(line, "L");
-      t   = parseFloatValue(line, "T");
-      h   = parseFloatValue(line, "H");
-      irr = parseIntValue(line, "IRR");
-      gotUart = true;
-      Serial.println("UART line: " + line);
+  // Bluetooth SPP
+  Serial.println();
+  Serial.println("=== Smart Irrigation Gateway (ESP32, Bluetooth mode) ===");
+  Serial.println("Starting Bluetooth SPP...");
+
+  // Start Bluetooth in SPP mode with a recognizable device name
+  if (!SerialBT.begin("SIS-ESP32-GW"))
+  { // SIS = Smart Irrigation System
+    Serial.println("ERROR: Failed to start Bluetooth SPP!");
+    // If BT fails, stay here so we see the error
+    while (true)
+    {
+      Serial.println("Bluetooth init failed. Restart the board.");
+      delay(3000);
     }
   }
-#endif
 
-  if (!gotUart) {
-    s1 = 450; s2 = 520; l = 300; t = 22.8; h = 46.5; irr = 1;
+  // Set a timeout for Bluetooth reads so readStringUntil() does not block forever
+  SerialBT.setTimeout(200); // 200 ms Bluetooth read timeout
+
+  Serial.println("Bluetooth SPP started successfully.");
+  Serial.println("Device name: SIS-ESP32-GW");
+  Serial.println("Waiting for Raspberry Pi to connect over BT...");
+}
+
+void loop()
+{
+  // --- Read any incoming telemetry from Arduino over UART, log it and update g_state ---
+  while (SerialToArduino.available() > 0)
+  {
+    String line = SerialToArduino.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0)
+    {
+      continue;
+    }
+
+    Serial.print("[UART] From Arduino: ");
+    Serial.println(line);
+
+    if (parseTelemetryLine(line, g_state))
+    {
+      g_hasTelemetry = true;
+      Serial.print("[UART] Parsed telemetry -> S1=");
+      Serial.print(g_state.soil1);
+      Serial.print(", S2=");
+      Serial.print(g_state.soil2);
+      Serial.print(", T=");
+      Serial.print(g_state.temp);
+      Serial.print(", H=");
+      Serial.print(g_state.hum);
+      Serial.print(", L=");
+      Serial.println(g_state.light);
+    }
+    else
+    {
+      Serial.println("[UART] Failed to parse telemetry line, ignoring.");
+    }
   }
 
-  bool ok = sendToThingSpeak(s1, s2, l, t, h, irr);
-  if (!ok) Serial.println("Send failed (no 200).");
+  // --- Main logic: send telemetry over Bluetooth, receive decisions, upload to ThingSpeak ---
+  static unsigned long lastSend = 0;
+  static unsigned long lastTsUpload = 0;
 
-  delay(SEND_PERIOD_MS);
+  const unsigned long SEND_INTERVAL_MS = 2000;    // send every 2 seconds
+  const unsigned long TS_UPLOAD_INTERVAL = 20000; // upload to ThingSpeak every 20 seconds
+
+  unsigned long now = millis();
+
+  if (now - lastSend >= SEND_INTERVAL_MS)
+  {
+    lastSend = now;
+
+    if (!g_hasTelemetry)
+    {
+      // We have not yet received any real telemetry from Arduino; skip sending.
+      Serial.println("[ESP32] No telemetry from Arduino yet, skipping BT send.");
+    }
+    else
+    {
+      // Build the payload exactly as Raspberry Pi expects, using real sensor data from Arduino
+      String payload = "S1:" + String(g_state.soil1, 1) +
+                       ",S2:" + String(g_state.soil2, 1) +
+                       ",T:" + String(g_state.temp, 1) +
+                       ",H:" + String(g_state.hum, 1) +
+                       ",L:" + String(g_state.light);
+
+      // Log to USB Serial (for debugging in Serial Monitor)
+      Serial.print("[ESP32] Sent over BT: ");
+      Serial.println(payload);
+
+      // Send over Bluetooth to Raspberry Pi (must end with newline)
+      SerialBT.print(payload);
+      SerialBT.print('\n'); // Ensure newline terminator
+      SerialBT.flush();     // Ensure data is pushed to BT stack
+    }
+  }
+
+  // --- 2) Read decisions sent by Raspberry Pi over Bluetooth SPP ---
+
+  if (SerialBT.available() > 0)
+  {
+    int availableBytes = SerialBT.available();
+    Serial.print("[ESP32] Bytes available from BT: ");
+    Serial.println(availableBytes);
+
+    // Read a full line until newline character
+    String line = SerialBT.readStringUntil('\n');
+    line.trim(); // remove \r, spaces, etc.
+
+    Serial.print("[ESP32] Raw BT line: ");
+    Serial.println(line);
+
+    if (line.length() > 0 && line.startsWith("DECISION:"))
+    {
+      String decision = line.substring(9);
+      decision.trim();
+
+      Serial.print("[ESP32] Parsed decision: ");
+      Serial.println(decision);
+
+      if (decision == "WATER_ON")
+      {
+        decisionFlag = 1;
+        Serial.println("[ESP32] Activating pump (SIMULATED: WATER_ON).");
+        // In the future, this will just forward the command to the Arduino over UART.
+      }
+      else if (decision == "WATER_OFF")
+      {
+        decisionFlag = 0;
+        Serial.println("[ESP32] Stopping pump (SIMULATED: WATER_OFF).");
+      }
+      else
+      {
+        Serial.println("[ESP32] Unknown decision value received.");
+      }
+    }
+    else if (line.length() > 0)
+    {
+      Serial.println("[ESP32] BT line does not start with 'DECISION:'. Ignoring.");
+    }
+  }
+
+  // --- 3) Periodically upload telemetry + decision to ThingSpeak ---
+
+  if (now - lastTsUpload >= TS_UPLOAD_INTERVAL)
+  {
+    lastTsUpload = now;
+    uploadToThingSpeak();
+  }
 }

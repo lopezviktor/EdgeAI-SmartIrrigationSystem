@@ -1,0 +1,19 @@
+{
+  "created_at": "2025-10-29T17:07:09.172753+00:00",
+  "framework": "tensorflow.keras",
+  "features": [
+    "soil1",
+    "soil2",
+    "soil_max",
+    "temp_c",
+    "humidity",
+    "light"
+  ],
+  "label": "decision",
+  "train_size": 4551,
+  "test_size": 1138,
+  "accuracy_test": 0.982425332069397,
+  "scaler_file": "minmax_scaler_keras.joblib",
+  "model_file": "baseline_dense.keras",
+  "notes": "TinyML neural network model for irrigation decision, trained on synthetic dataset"
+}
