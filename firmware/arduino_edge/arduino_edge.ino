@@ -35,6 +35,10 @@ static const size_t DECISION_BUF_SIZE = 64;
 char decisionBuf[DECISION_BUF_SIZE];
 size_t decisionBufIndex = 0;
 
+// --- Sampling interval (3 minutes) ---
+const unsigned long SAMPLE_INTERVAL_MS = 3UL * 60UL * 1000UL; // 180000 ms
+unsigned long lastSampleMs = 0;
+
 // Forward declarations
 void sendTelemetryToEsp32(float soil1, float soil2, float temp, float humidity, float light);
 void handleIncomingDecision();
@@ -72,40 +76,44 @@ void setup()
 
 void loop()
 {
-  // 1. Read sensors
-  float soil1 = analogRead(SOIL1_PIN);
-  float soil2 = analogRead(SOIL2_PIN);
-  float light = analogRead(LDR_PIN);
-  float temp = dht.readTemperature();
-  float humidity = dht.readHumidity();
+  unsigned long now = millis();
 
-  if (isnan(temp) || isnan(humidity))
+  if (now - lastSampleMs >= SAMPLE_INTERVAL_MS)
   {
-    Serial.println(F("[Arduino] DHT read failed, skipping this cycle."));
-  }
-  else
-  {
-    // 2. Log locally over USB
-    Serial.print(F("[Arduino] S1:"));
-    Serial.print(soil1);
-    Serial.print(F(", S2:"));
-    Serial.print(soil2);
-    Serial.print(F(", T:"));
-    Serial.print(temp);
-    Serial.print(F(", H:"));
-    Serial.print(humidity);
-    Serial.print(F(", L:"));
-    Serial.println(light);
+    lastSampleMs = now;
 
-    // 3. Send telemetry to ESP32 over UART (no local TinyML anymore)
-    sendTelemetryToEsp32(soil1, soil2, temp, humidity, light);
+    // 1.1 Read sensors
+    float soil1 = analogRead(SOIL1_PIN);
+    float soil2 = analogRead(SOIL2_PIN);
+    float light = analogRead(LDR_PIN);
+    float temp = dht.readTemperature();
+    float humidity = dht.readHumidity();
+
+    if (isnan(temp) || isnan(humidity))
+    {
+      Serial.println(F("[Arduino] DHT read failed, skipping this cycle."));
+    }
+    else
+    {
+      // 1.2 Log locally over USB
+      Serial.print(F("[Arduino] S1:"));
+      Serial.print(soil1);
+      Serial.print(F(", S2:"));
+      Serial.print(soil2);
+      Serial.print(F(", T:"));
+      Serial.print(temp);
+      Serial.print(F(", H:"));
+      Serial.print(humidity);
+      Serial.print(F(", L:"));
+      Serial.println(light);
+
+      // 1.3 Send telemetry to ESP32 over UART
+      sendTelemetryToEsp32(soil1, soil2, temp, humidity, light);
+    }
   }
 
-  // 4. Handle any incoming decision messages from ESP32
   handleIncomingDecision();
 
-  // Small delay for sampling period (2 seconds as before)
-  delay(2000);
 }
 
 // -------------------------------------------------------------------------

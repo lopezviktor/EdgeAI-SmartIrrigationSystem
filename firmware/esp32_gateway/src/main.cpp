@@ -207,8 +207,8 @@ void loop()
   static unsigned long lastSend = 0;
   static unsigned long lastTsUpload = 0;
 
-  const unsigned long SEND_INTERVAL_MS = 2000;    // send every 2 seconds
-  const unsigned long TS_UPLOAD_INTERVAL = 20000; // upload to ThingSpeak every 20 seconds
+  const unsigned long SEND_INTERVAL_MS = 180000;                // send every 3 minutes
+  const unsigned long TS_UPLOAD_INTERVAL = 3UL * 60UL * 1000UL; // upload to ThingSpeak every 3 minutes
 
   unsigned long now = millis();
 

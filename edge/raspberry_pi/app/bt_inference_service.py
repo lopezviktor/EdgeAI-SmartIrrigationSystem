@@ -2,6 +2,8 @@ import os
 import sys
 import serial
 import time
+import csv
+from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 if BASE_DIR not in sys.path:
@@ -17,7 +19,7 @@ from core.edge_model import EdgeIrrigationModel
 
 PORT = "/dev/rfcomm0"
 BAUDRATE = 9600  # symbolic for SPP, required by pyserial
-TIMEOUT = 1.0    # seconds
+TIMEOUT = 1.0  # seconds
 
 
 def parse_telemetry(line: str):
@@ -79,8 +81,7 @@ def main():
 
     # Load TinyML model once at startup
     model = EdgeIrrigationModel(
-        model_path="model/model.tflite",
-        scaler_path="model/scaler.joblib"
+        model_path="model/model.tflite", scaler_path="model/scaler.joblib"
     )
 
     try:
@@ -120,6 +121,43 @@ def main():
                     f"[MODEL] features={features} "
                     f"-> prob={prob:.3f}, decision={decision}"
                 )
+
+                # --- CSV logging ---
+
+                csv_path = "/home/pi/irrigation_log.csv"  # o la ruta que quieras
+
+                row = [
+                    datetime.now().isoformat(),
+                    data["S1"],
+                    data["S2"],
+                    data["T"],
+                    data["H"],
+                    data["L"],
+                    prob,
+                    label,
+                    decision,
+                ]
+
+                # Si no existe, se crea con cabecera; si existe, solo se añade
+                file_exists = os.path.isfile(csv_path)
+
+                with open(csv_path, "a", newline="") as f:
+                    writer = csv.writer(f)
+                    if not file_exists:
+                        writer.writerow(
+                            [
+                                "timestamp",
+                                "soil1",
+                                "soil2",
+                                "temp",
+                                "humidity",
+                                "ldr",
+                                "prob",
+                                "label",
+                                "decision",
+                            ]
+                        )
+                    writer.writerow(row)
 
                 # Send decision back to ESP32 over Bluetooth
                 try:
