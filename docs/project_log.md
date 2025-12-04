@@ -226,7 +226,7 @@ Despite relying on synthetic values for now, the behaviour fully mirrors the int
 The successful reintegration of ThingSpeak, combined with real-time Edge AI inference and wireless communication, demonstrates the maturity of the system and sets the stage for final hardware integration and diagram refinement in Week 7.
 
 ## 🔹 Week 7 – Real Hardware Integration & Architecture Finalisation
-**Date:** 30 November – 6 December 2025  
+**Date:** 24-30 November
 
 **This week marked the transition from simulation to real hardware operation, with all major system components integrated and tested using actual sensor data and physical wiring. The focus was on finalising the firmware, wiring up the pump control circuit, and aligning all documentation and diagrams with the deployed architecture.**
 
@@ -242,7 +242,6 @@ Arduino Hardware Integration (Real Sensors + TIP122 Pump Driver)
     - Control the pump using a TIP122 transistor and flyback diode (final soldering pending).
 - Verified successful compilation, upload, and UART transmission.
 
-**Result:**  
 Arduino now serves as a robust, dedicated sensor/actuator node, transmitting real sensor data and accepting actuator commands, ready for deployment as soon as the pump is soldered.
 
 Wiring & Pump Control Circuit (TIP122 Transistor Stage)
@@ -253,7 +252,6 @@ Wiring & Pump Control Circuit (TIP122 Transistor Stage)
   - Shared ground (GND) between Arduino, ESP32, and the 12V PSU
 - Breadboarded the circuit and double-checked current flow and diode orientation.
 
-**Result:**  
 Pump control hardware is electrically prepared, with final soldering to be completed before live motor testing.
 
 ESP32 Gateway Adjustments (UART from Arduino)
@@ -264,7 +262,6 @@ ESP32 Gateway Adjustments (UART from Arduino)
   - Relay irrigation decisions received from the Pi back to the Arduino.
 - Confirmed stable end-to-end data flow and proper parsing.
 
-**Result:**  
 ESP32 now functions as a reliable gateway between the Arduino and Raspberry Pi, supporting the final three-tier pipeline:  
 `Arduino → ESP32 → Raspberry Pi`
 
@@ -274,7 +271,6 @@ Raspberry Pi Edge AI Confirmation
 - Verified the full decision loop:
   - Telemetry (from Arduino) → Inference (on Pi) → Decision (to ESP32) → Actuation (on Arduino).
 
-**Result:**  
 The Pi inference service is fully compatible with live hardware data, completing the real-world M2M inference cycle.
 
 Documentation & Diagram Updates
@@ -292,3 +288,59 @@ Week 7 was the consolidation and deployment phase, transforming the simulated sy
 The Smart Irrigation System is now positioned for full real-world testing in Week 8, pending final pump integration and PSU wiring.
 
 ⸻
+
+## 🔹 Week 8 – Real Pump Deployment, Live Irrigation Test & Data Collection for Advanced Edge AI
+**Date:** 01–07 December 2025
+
+**This week marked the transition from a fully simulated irrigation pipeline to a complete physical deployment with a real plant, a soldered pump circuit, and long‑running data collection to prepare for a more advanced Edge AI model.**
+
+Real Pump Hardware Integration (TIP122 + Peristaltic Pump)
+- Completed soldering of the TIP122 low‑side switching stage for the peristaltic pump, including:
+  - TIP122 NPN Darlington transistor as the power stage.
+  - 1N4007 flyback diode across the pump terminals for inductive load protection.
+  - 1 kΩ base resistor between Arduino digital pin 8 (PUMP_PIN) and the TIP122 base.
+  - Common ground between Arduino, ESP32 and the USB power supply.
+- Verified wiring and polarity on breadboard before leaving the circuit running unattended:
+  - Confirmed that the pump only activates when the Arduino sets PUMP_PIN HIGH.
+  - Checked that the diode orientation (band towards positive) correctly clamps voltage spikes.
+  - Ensured that no current flows through the pump when the system is idle.
+- Prepared mechanical setup (tubing and water source) for future automated irrigation using the peristaltic pump.
+
+Timing Refactor – From 2‑second Demo Mode to 3‑minute “Irrigation Timescale”
+- Refactored Arduino firmware (`arduino_edge.ino`) to use a non‑blocking timing strategy based on `millis()`:
+  - Replaced the fixed `delay(2000)` loop with a 3‑minute sampling interval (`SAMPLE_INTERVAL_MS = 180000`).
+  - Sensor acquisition and UART telemetry to the ESP32 now trigger only once every 3 minutes.
+  - Kept `handleIncomingDecision()` running continuously so that pump commands can be applied immediately without blocking delays.
+- Updated ESP32 gateway firmware (`firmware/esp32_gateway/main.cpp`) to align with the new sampling period:
+  - Set `SEND_INTERVAL_MS` to 180000 ms so telemetry is forwarded to the Raspberry Pi over Bluetooth SPP once every 3 minutes, avoiding repeated resending of identical samples.
+  - Set `TS_UPLOAD_INTERVAL` to 180000 ms so ThingSpeak receives one coherent data point per 3‑minute cycle.
+  - Confirmed that the gateway correctly buffers the most recent telemetry and only uploads fresh readings.
+
+Long‑Running Data Logging on the Raspberry Pi
+- Extended the Bluetooth inference service (`edge/raspberry_pi/app/bt_inference_service.py`) to log each inference event to a local CSV file on the Raspberry Pi:
+  - Logged fields per row: timestamp, soil1, soil2, temperature, humidity, LDR, model probability, predicted label, and decision string (`WATER_ON` / `WATER_OFF`).
+  - Ensured that CSV logging is append‑only and created with a header row on first use.
+- Left the system running continuously for several days with a real potted plant connected to the sensors:
+  - Collected high‑resolution time‑series data every 3 minutes, including natural day/night cycles and indoor heating effects.
+  - Verified that the LDR signal follows realistic daylight patterns (low at night, high during the day, smooth transitions at sunrise/sunset with occasional peaks due to indoor lights).
+  - Observed a gradual increase in soil moisture readings over multiple days, representing a real drying process of the substrate.
+
+First Real Irrigation Event (Manual Low‑Dose Watering)
+- After several days of natural drying, performed the first real irrigation event to capture a complete “dry → irrigate → wet” cycle in the dataset:
+  - **Irrigation timestamp:** Thu 4 Dec 2025, 16:06:51 GMT (manual watering event recorded for later labelling).
+  - Applied a small manual watering equivalent to a “low dose” (short irrigation) to avoid over‑saturating the plant.
+  - Left the system running so that subsequent 3‑minute samples captured the immediate drop in soil sensor values and the slower post‑irrigation stabilisation.
+- This event will later be annotated in the CSV as a low‑dose irrigation example and used as ground truth for training a more advanced ML model (multi‑class dose prediction instead of simple ON/OFF).
+
+Preparation for Next‑Generation Edge AI Model
+- Reviewed the limitations of the original TinyML binary classifier (“irrigate / not irrigate”) and decided to keep it as a documented baseline rather than the final solution:
+  - The original model runs correctly on Arduino but essentially reproduces a threshold‑based rule and does not control irrigation volume.
+  - The new goal is to move inference to the Raspberry Pi and train a richer Edge AI model using all available features (soil1, soil2, temperature, humidity, light, time‑based features, and drying trends).
+- Defined the next steps for the advanced Edge AI model:
+  - Use the multi‑day dataset (including the first real irrigation event) to engineer features such as soil deltas, time of day, and light conditions.
+  - Train a Random Forest (or similar) model on the Raspberry Pi to predict irrigation **dose levels** (e.g., 0 = no water, 1 = low, 2 = medium, 3 = high) instead of a binary decision.
+  - Integrate the new model into the existing Bluetooth service so that future decisions are expressed as timed pump commands (e.g., pump ON for *N* seconds) rather than simple on/off flags.
+
+**Result:**  
+Week 8 successfully connected the final missing piece of the system: real pump hardware and live plant behaviour. The timing of all components (Arduino, ESP32, Raspberry Pi, ThingSpeak) was aligned to a realistic 3‑minute irrigation timescale, and robust CSV logging was enabled on the Raspberry Pi. The first real irrigation event was recorded and timestamped, providing essential labelled data for future model training. The project is now ready to move beyond a simple TinyML binary classifier towards a more expressive Edge AI model that can reason about irrigation dose, using the richer dataset collected during this week.
+
