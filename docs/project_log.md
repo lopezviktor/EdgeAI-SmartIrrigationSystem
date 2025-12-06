@@ -325,12 +325,22 @@ Long‑Running Data Logging on the Raspberry Pi
   - Verified that the LDR signal follows realistic daylight patterns (low at night, high during the day, smooth transitions at sunrise/sunset with occasional peaks due to indoor lights).
   - Observed a gradual increase in soil moisture readings over multiple days, representing a real drying process of the substrate.
 
+
 First Real Irrigation Event (Manual Low‑Dose Watering)
 - After several days of natural drying, performed the first real irrigation event to capture a complete “dry → irrigate → wet” cycle in the dataset:
   - **Irrigation timestamp:** Thu 4 Dec 2025, 16:06:51 GMT (manual watering event recorded for later labelling).
   - Applied a small manual watering equivalent to a “low dose” (short irrigation) to avoid over‑saturating the plant.
   - Left the system running so that subsequent 3‑minute samples captured the immediate drop in soil sensor values and the slower post‑irrigation stabilisation.
 - This event will later be annotated in the CSV as a low‑dose irrigation example and used as ground truth for training a more advanced ML model (multi‑class dose prediction instead of simple ON/OFF).
+
+Second Real Irrigation Event (Timed Pump Watering – 8 s)
+- After the substrate returned to a clearly dry state (soil1 and soil2 reaching values comparable to the pre‑irrigation baseline), a second irrigation event was executed using the peristaltic pump controlled by the Arduino.
+- **Irrigation timestamp:** Sat 6 Dec 2025, 13:07:43 GMT (recorded via `date` on the Raspberry Pi before activation).
+- Irrigation was triggered using the new manual pump command interface over USB Serial:  
+  command `PUMP_MEDIUM` on the Arduino, which internally activates `PUMP_PIN` for 8 seconds via the TIP122 driver stage.
+- Based on the nominal pump flow rate (≈ 1.5 ml/s), this event delivered an estimated volume of ~12 ml to the plant.
+- This event is being treated as a candidate “timed low/medium dose” example; its final class label (low vs. medium) will be determined after analysing the actual sensor response (drop in `soil1`/`soil2`) in the post‑irrigation time‑series.
+- The timestamp and dose metadata have been retained so this event can be explicitly annotated in the Raspberry Pi CSV logs for future training of the multi‑class irrigation dose model.
 
 Preparation for Next‑Generation Edge AI Model
 - Reviewed the limitations of the original TinyML binary classifier (“irrigate / not irrigate”) and decided to keep it as a documented baseline rather than the final solution:

@@ -39,10 +39,16 @@ size_t decisionBufIndex = 0;
 const unsigned long SAMPLE_INTERVAL_MS = 3UL * 60UL * 1000UL; // 180000 ms
 unsigned long lastSampleMs = 0;
 
+// --- Manual watering durations (ms) ---
+const unsigned long PUMP_LOW_MS = 3000;    // ~4.5 ml (low dose)
+const unsigned long PUMP_MEDIUM_MS = 8000; // ~12 ml (medium dose)
+const unsigned long PUMP_HIGH_MS = 12000;  // ~18 ml (high dose)
+
 // Forward declarations
 void sendTelemetryToEsp32(float soil1, float soil2, float temp, float humidity, float light);
 void handleIncomingDecision();
 void applyDecisionToPump(PumpDecision decision);
+void handleManualPumpCommands();
 
 void setup()
 {
@@ -72,11 +78,15 @@ void setup()
   Serial.println(F("== Smart Irrigation – Arduino Sensor Node =="));
   Serial.println(F("Role: Read real sensors and send telemetry to ESP32 over UART."));
   Serial.println(F("Decision (WATER_ON/OFF) will come back from ESP32/Raspberry Pi."));
+  Serial.println(F("Manual pump commands over USB: PUMP_LOW, PUMP_MEDIUM, PUMP_HIGH"));
 }
 
 void loop()
 {
   unsigned long now = millis();
+
+  // Check for manual pump commands from USB Serial (non-blocking when idle)
+  handleManualPumpCommands();
 
   if (now - lastSampleMs >= SAMPLE_INTERVAL_MS)
   {
@@ -113,7 +123,6 @@ void loop()
   }
 
   handleIncomingDecision();
-
 }
 
 // -------------------------------------------------------------------------
@@ -148,6 +157,52 @@ void sendTelemetryToEsp32(float soil1, float soil2, float temp, float humidity, 
   Serial.print(humidity, 2);
   Serial.print(F(", L:"));
   Serial.println(light, 2);
+}
+
+// --------------------------------------------------------------------------
+// Handle manual pump commands over USB Serial
+// Commands (send from Serial Monitor, newline-terminated):
+//   PUMP_LOW
+//   PUMP_MEDIUM
+//   PUMP_HIGH
+// --------------------------------------------------------------------------
+void handleManualPumpCommands()
+{
+  if (Serial.available() > 0)
+  {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim(); // remove \r and spaces
+
+    if (cmd.equalsIgnoreCase("PUMP_LOW"))
+    {
+      Serial.println(F("[PUMP] Manual LOW watering (~3 s)"));
+      applyDecisionToPump(DECISION_WATER_ON);
+      delay(PUMP_LOW_MS);
+      applyDecisionToPump(DECISION_WATER_OFF);
+      Serial.println(F("[PUMP] Manual LOW watering finished"));
+    }
+    else if (cmd.equalsIgnoreCase("PUMP_MEDIUM"))
+    {
+      Serial.println(F("[PUMP] Manual MEDIUM watering (~8 s)"));
+      applyDecisionToPump(DECISION_WATER_ON);
+      delay(PUMP_MEDIUM_MS);
+      applyDecisionToPump(DECISION_WATER_OFF);
+      Serial.println(F("[PUMP] Manual MEDIUM watering finished"));
+    }
+    else if (cmd.equalsIgnoreCase("PUMP_HIGH"))
+    {
+      Serial.println(F("[PUMP] Manual HIGH watering (~12 s)"));
+      applyDecisionToPump(DECISION_WATER_ON);
+      delay(PUMP_HIGH_MS);
+      applyDecisionToPump(DECISION_WATER_OFF);
+      Serial.println(F("[PUMP] Manual HIGH watering finished"));
+    }
+    else
+    {
+      Serial.print(F("[PUMP] Unknown manual command: "));
+      Serial.println(cmd);
+    }
+  }
 }
 
 // -----------------------------------------------------------------
