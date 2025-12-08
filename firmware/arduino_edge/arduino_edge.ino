@@ -40,9 +40,9 @@ const unsigned long SAMPLE_INTERVAL_MS = 3UL * 60UL * 1000UL; // 180000 ms
 unsigned long lastSampleMs = 0;
 
 // --- Manual watering durations (ms) ---
-const unsigned long PUMP_LOW_MS = 3000;    // ~4.5 ml (low dose)
-const unsigned long PUMP_MEDIUM_MS = 8000; // ~12 ml (medium dose)
-const unsigned long PUMP_HIGH_MS = 12000;  // ~18 ml (high dose)
+const unsigned long PUMP_LOW_MS    = 8000;   // ~Low dose (real test)
+const unsigned long PUMP_MEDIUM_MS = 14000;  // ~Medium dose (target)
+const unsigned long PUMP_HIGH_MS   = 17000;  // ~High dose (target)
 
 // Forward declarations
 void sendTelemetryToEsp32(float soil1, float soil2, float temp, float humidity, float light);
