@@ -333,14 +333,16 @@ First Real Irrigation Event (Manual Low‑Dose Watering)
   - Left the system running so that subsequent 3‑minute samples captured the immediate drop in soil sensor values and the slower post‑irrigation stabilisation.
 - This event will later be annotated in the CSV as a low‑dose irrigation example and used as ground truth for training a more advanced ML model (multi‑class dose prediction instead of simple ON/OFF).
 
-- After the substrate returned to a clearly dry state (soil1 and soil2 reaching values comparable to the pre‑irrigation baseline), a second irrigation event was executed using the peristaltic pump controlled by the Arduino.
+**Timed Pump Irrigation Test – Initial 8-second Dose (relabelled as low)**
+
+- After the substrate returned to a clearly dry state (soil1 and soil2 reaching values comparable to the pre-irrigation baseline), a second irrigation event was executed using the peristaltic pump controlled by the Arduino.
 - **Irrigation timestamp:** Sat 6 Dec 2025, 13:07:43 GMT (recorded via `date` on the Raspberry Pi before activation).
 - Irrigation was triggered using the new manual pump command interface over USB Serial:  
   command `PUMP_MEDIUM` on the Arduino, which internally activates `PUMP_PIN` for 8 seconds via the TIP122 driver stage.
-- Based on the nominal pump flow rate (≈ 1.5 ml/s), this event delivered an estimated volume of ~12 ml to the plant.
-- After analysing the post‑irrigation time‑series on ThingSpeak and the Raspberry Pi CSV export, the observed drop in `soil1`/`soil2` was relatively small compared to the manual watering event. This confirms that an 8‑second activation of the peristaltic pump behaves as a **low‑dose** irrigation rather than a medium one.
-- This event has therefore been definitively labelled as a **timed low‑dose irrigation** example and will be used as ground truth for the “low” class when training the future multi‑class irrigation dose model.
-- The timestamp and dose metadata have been retained so this event can be explicitly annotated in the Raspberry Pi CSV logs for future training of the multi‑class irrigation dose model.
+- Based on the nominal pump flow rate (≈ 1.5 ml/s), this event delivered an estimated volume of approximately 12 ml to the plant.
+- After analysing the post-irrigation time-series on ThingSpeak and the Raspberry Pi CSV export, the observed drop in `soil1`/`soil2` was relatively small compared to the manual watering event. This confirms that an 8-second activation of the peristaltic pump behaves as a **low-dose** irrigation rather than a medium one.
+- This event has therefore been definitively labelled as a **timed low-dose irrigation** example and will be used as ground truth for the “low” class when training the future multi-class irrigation dose model.
+- The timestamp and dose metadata have been retained so this event can be explicitly annotated in the Raspberry Pi CSV logs for future training and evaluation of the multi-class irrigation dose model.
 
 Preparation for Next‑Generation Edge AI Model
 - Reviewed the limitations of the original TinyML binary classifier (“irrigate / not irrigate”) and decided to keep it as a documented baseline rather than the final solution:
@@ -350,6 +352,25 @@ Preparation for Next‑Generation Edge AI Model
   - Use the multi‑day dataset (including the first real irrigation event) to engineer features such as soil deltas, time of day, and light conditions.
   - Train a Random Forest (or similar) model on the Raspberry Pi to predict irrigation **dose levels** (e.g., 0 = no water, 1 = low, 2 = medium, 3 = high) instead of a binary decision.
   - Integrate the new model into the existing Bluetooth service so that future decisions are expressed as timed pump commands (e.g., pump ON for *N* seconds) rather than simple on/off flags.
+
+Second Controlled Irrigation Event – Medium-Dose Pump Watering (14 s)
+
+- After several additional days of natural drying, the substrate had stabilised around soil1 ≈ 500 and soil2 ≈ 530–540, but environmental conditions in York (low temperature, high ambient humidity) slowed down further drying.
+- To accelerate the drying process in a controlled way, a gentle warm-air flow was applied over the potting soil using a household hair dryer:
+  - Low–medium temperature setting, at approximately 30–40 cm distance from the pot.
+  - Short cycles of 1 minute ON / 30 seconds OFF, for a total of ~4 minutes.
+  - Care was taken to avoid heating the plant foliage or the plastic pot directly.
+- This procedure increased the soil moisture readings (higher raw values = drier substrate) until soil1 stabilised around 505–510 and soil2 around 535–540, which was considered a realistic “dry but safe” state to test a medium-dose irrigation.
+
+- A second, controlled irrigation event was then executed using the peristaltic pump driven by the Arduino:
+  - **Irrigation timestamp:** Mon 8 Dec 2025, 16:57:58 GMT (recorded via `date` on the Raspberry Pi).
+  - The pump was activated through the manual USB command `PUMP_MEDIUM`, mapped in firmware to a 14-second activation of `PUMP_PIN` via the TIP122 stage.
+  - Immediately after the irrigation, the Raspberry Pi logs and ThingSpeak channel showed:
+    - A sharp drop in `soil1` (from ≈ 504 to ≈ 365), indicating that the water jet reached the region around the first sensor.
+    - A smaller and more delayed change in `soil2`, consistent with non-uniform water distribution in the pot (the second sensor is physically located in a different zone of the substrate).
+  - Over the following 30–40 minutes, `soil1` gradually increased again towards 460–480, while `soil2` slowly drifted upwards into the 550–565 range, reflecting moisture redistribution and partial surface drying.
+
+- This event has been labelled as a **medium-dose irrigation** in the Raspberry Pi CSV logs and will serve as the ground-truth example for the “medium” class in the future multi-class Edge AI model (0 = no water, 1 = low, 2 = medium, 3 = high).
 
 **Result:**  
 Week 8 successfully connected the final missing piece of the system: real pump hardware and live plant behaviour. The timing of all components (Arduino, ESP32, Raspberry Pi, ThingSpeak) was aligned to a realistic 3‑minute irrigation timescale, and robust CSV logging was enabled on the Raspberry Pi. The first real irrigation event was recorded and timestamped, providing essential labelled data for future model training. The project is now ready to move beyond a simple TinyML binary classifier towards a more expressive Edge AI model that can reason about irrigation dose, using the richer dataset collected during this week.
