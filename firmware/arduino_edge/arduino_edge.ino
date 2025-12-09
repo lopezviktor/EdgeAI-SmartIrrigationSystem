@@ -40,9 +40,9 @@ const unsigned long SAMPLE_INTERVAL_MS = 3UL * 60UL * 1000UL; // 180000 ms
 unsigned long lastSampleMs = 0;
 
 // --- Manual watering durations (ms) ---
-const unsigned long PUMP_LOW_MS    = 8000;   // ~Low dose (real test)
-const unsigned long PUMP_MEDIUM_MS = 14000;  // ~Medium dose (target)
-const unsigned long PUMP_HIGH_MS   = 17000;  // ~High dose (target)
+const unsigned long PUMP_LOW_MS = 8000;     // ~Low dose (real test)
+const unsigned long PUMP_MEDIUM_MS = 14000; // ~Medium dose (target)
+const unsigned long PUMP_HIGH_MS = 18000;   // ~High dose (target)
 
 // Forward declarations
 void sendTelemetryToEsp32(float soil1, float soil2, float temp, float humidity, float light);
@@ -175,7 +175,7 @@ void handleManualPumpCommands()
 
     if (cmd.equalsIgnoreCase("PUMP_LOW"))
     {
-      Serial.println(F("[PUMP] Manual LOW watering (~3 s)"));
+      Serial.println(F("[PUMP] Manual LOW watering (~8 s)"));
       applyDecisionToPump(DECISION_WATER_ON);
       delay(PUMP_LOW_MS);
       applyDecisionToPump(DECISION_WATER_OFF);
@@ -183,7 +183,7 @@ void handleManualPumpCommands()
     }
     else if (cmd.equalsIgnoreCase("PUMP_MEDIUM"))
     {
-      Serial.println(F("[PUMP] Manual MEDIUM watering (~8 s)"));
+      Serial.println(F("[PUMP] Manual MEDIUM watering (~14 s)"));
       applyDecisionToPump(DECISION_WATER_ON);
       delay(PUMP_MEDIUM_MS);
       applyDecisionToPump(DECISION_WATER_OFF);
@@ -191,7 +191,7 @@ void handleManualPumpCommands()
     }
     else if (cmd.equalsIgnoreCase("PUMP_HIGH"))
     {
-      Serial.println(F("[PUMP] Manual HIGH watering (~12 s)"));
+      Serial.println(F("[PUMP] Manual HIGH watering (~18 s)"));
       applyDecisionToPump(DECISION_WATER_ON);
       delay(PUMP_HIGH_MS);
       applyDecisionToPump(DECISION_WATER_OFF);
