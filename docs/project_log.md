@@ -397,6 +397,18 @@ The Smart Irrigation System is now positioned for full real-world testing in Wee
 - These characteristics make this event a strong ground‑truth example for the **high‑dose irrigation class** (class 3) in the upcoming multi‑class Edge AI model.  
 - All corresponding time‑series measurements have been logged in the Raspberry Pi CSV dataset and will be used to extract drying‑curve features (derivatives, deltas, return‑to‑baseline time) during the model‑training phase.
 
+### Soil Moisture Response to Irrigation Events
+<p align="center">
+  <img src="../docs/figures/soil_irrigation_events.png" width="750">
+</p>
+
+The following figure summarizes the behaviour of both soil moisture sensors after each of the four controlled irrigation events performed during Week 8 (manual LOW, pump LOW–8s, pump MEDIUM–14s, pump HIGH–18s). The curves clearly show the characteristic reaction of each dose:
+	•	LOW doses produce small, fast-recovering drops in Soil1/Soil2.
+	•	MEDIUM dose generates a deeper and sustained infiltration before re-drying.
+	•	HIGH dose shows both the strongest initial impact and the slowest recovery profile.
+
+This figure will be used later in the Edge AI training workflow to validate that each irrigation event produces a distinct, separable pattern detectable through the sensors.
+
 **Result:**  
 Week 8 successfully connected the final missing piece of the system: real pump hardware and live plant behaviour. The timing of all components (Arduino, ESP32, Raspberry Pi, ThingSpeak) was aligned to a realistic 3‑minute irrigation timescale, and robust CSV logging was enabled on the Raspberry Pi. The first real irrigation events (manual, timed low‑dose, medium‑dose, and high‑dose) were recorded and timestamped, providing essential labelled data for future model training. The project is now ready to move beyond a simple TinyML binary classifier towards a more expressive Edge AI model that can reason about irrigation dose, using the richer dataset collected during this week.
 
