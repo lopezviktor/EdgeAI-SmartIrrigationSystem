@@ -398,16 +398,52 @@ The Smart Irrigation System is now positioned for full real-world testing in Wee
 - All corresponding time‑series measurements have been logged in the Raspberry Pi CSV dataset and will be used to extract drying‑curve features (derivatives, deltas, return‑to‑baseline time) during the model‑training phase.
 
 ### Soil Moisture Response to Irrigation Events
+
 <p align="center">
   <img src="../docs/figures/soil_irrigation_events.png" width="750">
 </p>
 
-The following figure summarizes the behaviour of both soil moisture sensors after each of the four controlled irrigation events performed during Week 8 (manual LOW, pump LOW–8s, pump MEDIUM–14s, pump HIGH–18s). The curves clearly show the characteristic reaction of each dose:
-	•	LOW doses produce small, fast-recovering drops in Soil1/Soil2.
-	•	MEDIUM dose generates a deeper and sustained infiltration before re-drying.
-	•	HIGH dose shows both the strongest initial impact and the slowest recovery profile.
+- The figure summarises the behaviour of both soil moisture sensors after the controlled irrigation events performed during Week 8 (manual LOW, pump LOW – 8 s, pump MEDIUM – 14 s, pump HIGH – 18 s).
+- Overall pattern observed:
+  - **LOW doses** produce smaller drops and quicker recovery.
+  - **MEDIUM dose** produces a deeper drop in `soil1` with a sustained wet phase.
+  - **HIGH dose** produces the strongest immediate drop and the slowest recovery curve.
+- This figure will be used later during model training to confirm that each irrigation event produces a distinct and separable sensor response.
 
-This figure will be used later in the Edge AI training workflow to validate that each irrigation event produces a distinct, separable pattern detectable through the sensors.
+### Fifth Controlled Irrigation Event – Super High‑Dose Pump Watering (24 s)
+
+- To increase separation between dose patterns and capture an extreme irrigation profile for the upcoming multi‑class dose model, a final **Super‑High** irrigation was executed immediately before leaving York.
+- This event was designed to be clearly distinguishable from **HIGH (18 s)** in terms of magnitude and recovery time.
+
+**Irrigation timestamp:** Thu 11 Dec 2025, **09:28:35 GMT** (recorded using `date` on the Raspberry Pi).
+
+**Pump activation method:** manual USB command `PUMP_HIGH`.
+- For this test only, firmware was temporarily adjusted so that the HIGH command runs for **24 seconds** (`PUMP_HIGH_MS = 24000`).
+
+**Notes and expected sensor behaviour:**
+- A super‑high dose should generate:
+  - a larger immediate drop in `soil1` (fast wetting where the jet impacts),
+  - a more noticeable delayed response in `soil2` due to moisture diffusion,
+  - and a slower recovery curve than the previous events.
+- The system was intentionally left to run after this irrigation to collect long‑term post‑event readings via ThingSpeak.
+
+### Remote Monitoring Plan (Leaving System Running While Away)
+
+- The system was left uploading telemetry to ThingSpeak for remote monitoring while away in Spain.
+- For safety while unattended:
+  - The **pump power supply can be disconnected** while keeping the Arduino + ESP32 sensor telemetry running.
+  - This prevents unintended watering while maintaining continuous data collection.
+- The Raspberry Pi was taken to Spain to support dataset preparation and model training work, while the IoT node in York continues uploading live sensor data to the cloud.
+
+### Dataset Export Preparation (Transition to Real‑World Training Data)
+
+- The full ThingSpeak export was downloaded as the definitive **raw dataset** for the next ML phase.
+- The dataset follows the standard channel schema:
+  - `created_at`, `entry_id`, `field1`–`field6`, …
+- Next step (Week 9): generate the **final cleaned/base dataset** by:
+  - aligning column names (`field1`–`field6` → `soil1`, `soil2`, `temp`, `humidity`, `light`, `decision`),
+  - removing noise/outliers and sensor movement artefacts,
+  - and labelling dose events using the recorded irrigation timestamps (LOW / MEDIUM / HIGH / SUPER‑HIGH).
 
 **Result:**  
 Week 8 successfully connected the final missing piece of the system: real pump hardware and live plant behaviour. The timing of all components (Arduino, ESP32, Raspberry Pi, ThingSpeak) was aligned to a realistic 3‑minute irrigation timescale, and robust CSV logging was enabled on the Raspberry Pi. The first real irrigation events (manual, timed low‑dose, medium‑dose, and high‑dose) were recorded and timestamped, providing essential labelled data for future model training. The project is now ready to move beyond a simple TinyML binary classifier towards a more expressive Edge AI model that can reason about irrigation dose, using the richer dataset collected during this week.
