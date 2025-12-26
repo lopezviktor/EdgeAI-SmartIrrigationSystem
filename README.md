@@ -161,6 +161,19 @@ The public simulation link and configuration details are provided in `/hardware/
 - Evaluation metrics include **accuracy**, **precision**, **latency**, and **memory footprint**.  
 - Graphical summaries and logs are archived in `/docs/media/`.
 
+### 10.1 Baseline and Synthetic Dataset (Initial Phase)
+
+During the early stage of the project, a **synthetic dataset** was created to validate the complete end-to-end pipeline, including data preprocessing, model training, TinyML export, and edge deployment.
+
+This baseline dataset was **not based on real sensor measurements** and was intentionally used only for:
+- Pipeline validation
+- Early model prototyping
+- Testing TinyML deployment constraints
+
+Once the physical Smart Irrigation System became fully operational, the synthetic dataset was **deprecated** and replaced by a **real-world dataset collected from the live system**, covering multiple irrigation cycles (LOW, MEDIUM, HIGH, SUPER-HIGH).
+
+All experiments, evaluations, and conclusions presented in this project are based **exclusively on real sensor data**.
+
 ---
 
 ## 11. Dashboard and Visualization
