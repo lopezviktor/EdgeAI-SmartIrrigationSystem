@@ -521,12 +521,24 @@ Week 8 successfully connected the final missing piece of the system: real pump h
   - Instant snapshot features at the event (`*_at_event`)
 - Ensured the training script raises a clear error if the production filter results in an empty feature matrix (safety guard).
 
+
 ### Model Artefacts Exported
 
 - Exported the trained model and its feature contract for reproducible inference:
   - Production model: `models/rf_dose_regressor_prod.joblib`
   - Production feature list: `models/rf_dose_features_prod.json`
 - The saved JSON feature list defines the exact feature order expected at inference time, preventing silent feature misalignment between training and deployment.
+
+### Production Inference Smoke Test (Offline)
+
+- Added a small offline validation script to confirm the end-to-end production inference path before Raspberry Pi deployment:
+  - `scripts/smoke_test_prod_inference.py`
+- The smoke test loads the exported production artefacts (`.joblib` + features JSON), builds an input vector using the exact feature order from the contract, runs a prediction, and snaps the result to the allowed dose set {8, 14, 18, 24}.
+- Example output (first training sample):
+  - Ground truth: 8 s
+  - Predicted (continuous): ~10.7 s
+  - Predicted (snapped): 8 s
+- This validates that model serialisation, feature ordering, and post-processing (snapping) are consistent and ready for integration into the Raspberry Pi inference service.
 
 ### Current Limitations and Next Step
 
