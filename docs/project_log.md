@@ -499,6 +499,40 @@ Week 8 successfully connected the final missing piece of the system: real pump h
   - Higher doses can show longer redistribution times depending on sensor placement and soil heterogeneity
 - Confirmed that the data and scripts run inside the project virtual environment (`.venv-tflite`) from the repository root.
 
+
+### Random Forest Training – Regression Model (Dose in Seconds)
+
+- Implemented and executed the training script:
+  - `scripts/train_rf_dose_model.py`
+- Trained a **RandomForestRegressor** to predict `irrigation_seconds` from engineered sensor features.
+- Adopted **Leave-One-Out Cross Validation (LOOCV)** due to the small number of labelled irrigation events (4 samples at this stage).
+- Produced baseline evaluation results (LOOCV):
+  - MAE (continuous prediction): **≈ 5.6–5.9 s**
+  - RMSE (continuous prediction): **≈ 6.9–7.1 s**
+  - MAE (snapped to allowed doses {8,14,18,24}): **≈ 6.0 s**
+- These metrics are expected to be unstable with very limited labelled data; the goal at this stage is to validate a correct and reproducible end‑to‑end ML pipeline.
+
+### Feature Set Alignment – Removing `light` and Enforcing Decision‑Time Features
+
+- Confirmed that `light` should remain excluded from the dose model and updated the training pipeline to automatically drop all `light_*` features before training.
+- Identified a critical deployment constraint: **POST-response features are not available at decision time** (they occur after watering), therefore they cannot be used by a real-time Edge controller.
+- Implemented a **production mode** feature filter to train a deployment-ready model using only:
+  - PRE-window statistics (`*_pre_*`)
+  - Instant snapshot features at the event (`*_at_event`)
+- Ensured the training script raises a clear error if the production filter results in an empty feature matrix (safety guard).
+
+### Model Artefacts Exported
+
+- Exported the trained model and its feature contract for reproducible inference:
+  - Production model: `models/rf_dose_regressor_prod.joblib`
+  - Production feature list: `models/rf_dose_features_prod.json`
+- The saved JSON feature list defines the exact feature order expected at inference time, preventing silent feature misalignment between training and deployment.
+
+### Current Limitations and Next Step
+
+- The current labelled dataset contains only 4 controlled pump events (8 s, 14 s, 18 s, 24 s); additional irrigation cycles are required to improve generalisation.
+- Next step: integrate the **production** dose regressor into the Raspberry Pi inference service so that each decision cycle outputs a predicted pump duration (seconds), snapped to the allowed set {8, 14, 18, 24}, and then actuates the pump accordingly.
+
 **Reflection:**  
 This phase established the foundations for a more realistic irrigation controller by moving from a binary classifier to a dose-aware Edge AI model. The project now includes a professional and reproducible dataset labelling workflow, a training-set builder based on real ground-truth irrigation events, and engineered features that capture both the pre-irrigation state and post-irrigation soil response dynamics. The next step is to train and evaluate a Random Forest regressor on the labelled dataset, export the model artefact, and integrate dose inference into the Raspberry Pi service for timed pump control.
 
