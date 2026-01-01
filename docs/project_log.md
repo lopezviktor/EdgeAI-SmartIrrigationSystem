@@ -448,3 +448,103 @@ The Smart Irrigation System is now positioned for full real-world testing in Wee
 **Result:**  
 Week 8 successfully connected the final missing piece of the system: real pump hardware and live plant behaviour. The timing of all components (Arduino, ESP32, Raspberry Pi, ThingSpeak) was aligned to a realistic 3‑minute irrigation timescale, and robust CSV logging was enabled on the Raspberry Pi. The first real irrigation events (manual, timed low‑dose, medium‑dose, and high‑dose) were recorded and timestamped, providing essential labelled data for future model training. The project is now ready to move beyond a simple TinyML binary classifier towards a more expressive Edge AI model that can reason about irrigation dose, using the richer dataset collected during this week.
 
+---
+
+## 🔹 Week 9 – Edge AI Dose Model (Random Forest Regression) – Dataset Labelling & Training Pipeline
+
+**This phase focused on designing and implementing the next-generation Edge AI model that predicts irrigation dose (pump seconds) instead of a binary ON/OFF decision. The work was completed after a short holiday break, therefore no fixed calendar dates are listed.**
+
+### Goal – From Binary Decision to Irrigation Dose
+
+- Defined a new supervised ML objective: predict the irrigation dose as a regression target (`irrigation_seconds`) instead of a binary label.
+- Established the production mapping from model output to pump activation time:
+  - LOW = 8 s, MEDIUM = 14 s, HIGH = 18 s, SUPERHIGH = 24 s
+- Confirmed the final feature set for this model (based on real sensor behaviour):
+  - `soil_avg` (average of the two soil sensors)
+  - `soil_diff` (difference between soil1 and soil2 to capture heterogeneity)
+  - `temperature`, `humidity`
+- Excluded `light` from the feature set for dose prediction due to contamination from early artificial lighting conditions and limited contribution to dose selection in this design.
+
+### Dataset Gap Identified – Missing Dose Labels
+
+- Verified that the base dataset export contains raw telemetry and derived features but does not include an explicit dose label column.
+- Clarified the ML training requirement: the label must be generated from real irrigation events, not from the existing `decision` field (which is not an input for this model).
+
+### Ground Truth Labelling – Irrigation Events File
+
+- Created a manual irrigation event file to represent the ground-truth actions applied in real life:
+  - `data/labels/irrigation_events.csv`
+  - Columns: `timestamp` (UTC) and `irrigation_seconds` (8/14/18/24)
+- Recorded irrigation timestamps directly on the Raspberry Pi using the `date` command at the moment of pump activation (GMT/UTC).
+- Identified and excluded the first manual full-surface watering event (≈12 s) from supervised training because it is not physically comparable to the fixed-jet peristaltic pump setup, and would introduce heterogeneous actuator behaviour into the labelled dataset.
+
+### Training Dataset Builder – Time-Based Windows (PRE/POST)
+
+- Implemented a reproducible ML pipeline script:
+  - `scripts/build_training_set.py`
+- The script builds `data/training/train.csv` by extracting time-based windows around each irrigation event:
+  - PRE window: 30 minutes before the irrigation timestamp
+  - POST window: 4 hours after the irrigation timestamp (to capture slow moisture stabilisation and redistribution)
+- Feature engineering summary:
+  - PRE statistics (mean, std, min, max) for soil and environment variables
+  - POST response statistics (min/max/mean) for soil variables
+  - Dynamic response feature: `time_to_min_soil_avg_minutes` (time from irrigation to peak wetness in `soil_avg`)
+- Updated the pipeline to be robust to irregular sampling intervals by slicing windows using timestamps rather than assuming a fixed “3 minutes per row”.
+
+### Initial Output & Validation
+
+- Successfully generated `data/training/train.csv` (one row per labelled irrigation event).
+- Validated that `time_to_min_soil_avg_minutes` captures the physical response dynamics of the substrate:
+  - Short doses can show delayed wetting peaks
+  - Higher doses can show longer redistribution times depending on sensor placement and soil heterogeneity
+- Confirmed that the data and scripts run inside the project virtual environment (`.venv-tflite`) from the repository root.
+
+
+### Random Forest Training – Regression Model (Dose in Seconds)
+
+- Implemented and executed the training script:
+  - `scripts/train_rf_dose_model.py`
+- Trained a **RandomForestRegressor** to predict `irrigation_seconds` from engineered sensor features.
+- Adopted **Leave-One-Out Cross Validation (LOOCV)** due to the small number of labelled irrigation events (4 samples at this stage).
+- Produced baseline evaluation results (LOOCV):
+  - MAE (continuous prediction): **≈ 5.6–5.9 s**
+  - RMSE (continuous prediction): **≈ 6.9–7.1 s**
+  - MAE (snapped to allowed doses {8,14,18,24}): **≈ 6.0 s**
+- These metrics are expected to be unstable with very limited labelled data; the goal at this stage is to validate a correct and reproducible end‑to‑end ML pipeline.
+
+### Feature Set Alignment – Removing `light` and Enforcing Decision‑Time Features
+
+- Confirmed that `light` should remain excluded from the dose model and updated the training pipeline to automatically drop all `light_*` features before training.
+- Identified a critical deployment constraint: **POST-response features are not available at decision time** (they occur after watering), therefore they cannot be used by a real-time Edge controller.
+- Implemented a **production mode** feature filter to train a deployment-ready model using only:
+  - PRE-window statistics (`*_pre_*`)
+  - Instant snapshot features at the event (`*_at_event`)
+- Ensured the training script raises a clear error if the production filter results in an empty feature matrix (safety guard).
+
+
+### Model Artefacts Exported
+
+- Exported the trained model and its feature contract for reproducible inference:
+  - Production model: `models/rf_dose_regressor_prod.joblib`
+  - Production feature list: `models/rf_dose_features_prod.json`
+- The saved JSON feature list defines the exact feature order expected at inference time, preventing silent feature misalignment between training and deployment.
+
+### Production Inference Smoke Test (Offline)
+
+- Added a small offline validation script to confirm the end-to-end production inference path before Raspberry Pi deployment:
+  - `scripts/smoke_test_prod_inference.py`
+- The smoke test loads the exported production artefacts (`.joblib` + features JSON), builds an input vector using the exact feature order from the contract, runs a prediction, and snaps the result to the allowed dose set {8, 14, 18, 24}.
+- Example output (first training sample):
+  - Ground truth: 8 s
+  - Predicted (continuous): ~10.7 s
+  - Predicted (snapped): 8 s
+- This validates that model serialisation, feature ordering, and post-processing (snapping) are consistent and ready for integration into the Raspberry Pi inference service.
+
+### Current Limitations and Next Step
+
+- The current labelled dataset contains only 4 controlled pump events (8 s, 14 s, 18 s, 24 s); additional irrigation cycles are required to improve generalisation.
+- Next step: integrate the **production** dose regressor into the Raspberry Pi inference service so that each decision cycle outputs a predicted pump duration (seconds), snapped to the allowed set {8, 14, 18, 24}, and then actuates the pump accordingly.
+
+**Reflection:**  
+This phase established the foundations for a more realistic irrigation controller by moving from a binary classifier to a dose-aware Edge AI model. The project now includes a professional and reproducible dataset labelling workflow, a training-set builder based on real ground-truth irrigation events, and engineered features that capture both the pre-irrigation state and post-irrigation soil response dynamics. The next step is to train and evaluate a Random Forest regressor on the labelled dataset, export the model artefact, and integrate dose inference into the Raspberry Pi service for timed pump control.
+
