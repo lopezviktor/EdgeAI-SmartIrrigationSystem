@@ -2,14 +2,17 @@ import os
 import sys
 import serial
 import time
-import csv
-from datetime import datetime
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # .../edge/raspberry_pi
 if BASE_DIR not in sys.path:
-    sys.path.append(BASE_DIR)
+    sys.path.insert(0, BASE_DIR)
+
+MODEL_DIR = os.path.join(BASE_DIR, "model")
+ONOFF_DIR = os.path.join(MODEL_DIR, "onoff")
+DOSE_DIR = os.path.join(MODEL_DIR, "dose")
 
 from core.edge_model import EdgeIrrigationModel
+from core.dose_model import DoseRegressor
 
 # Bluetooth SPP reader + telemetry parser + TinyML inference.
 # It reads from /dev/rfcomm0 (ESP32 SPP), parses lines like:
@@ -79,9 +82,15 @@ def main():
     print("[INFO] Opening Bluetooth serial port:", PORT)
 
     model = EdgeIrrigationModel(
-        model_path="model/model.tflite",
-        scaler_path="model/scaler.joblib",
+        model_path=os.path.join(ONOFF_DIR, "model.tflite"),
+        scaler_path=os.path.join(ONOFF_DIR, "scaler.joblib"),
     )
+
+    dose_model = DoseRegressor(
+        model_path=os.path.join(DOSE_DIR, "rf_dose_regressor_prod.joblib"),
+        features_path=os.path.join(DOSE_DIR, "rf_dose_features_prod.json"),
+    )
+    print("[DOSE] Dose model loaded (shadow mode)")
 
     ser = None
 
@@ -124,6 +133,11 @@ def main():
 
             decision = "WATER_ON" if label == 1 else "WATER_OFF"
             print(f"[DECISION] {decision} (prob={prob:.3f})")
+
+            # Shadow mode: the dose model is loaded and ready.
+            # Next step: build the 29-feature vector for DoseRegressor from the rolling window features
+            # and only use it when decision == WATER_ON.
+            _ = dose_model
 
         except serial.SerialException as e:
             print(f"[WARN] Serial error: {e}")
