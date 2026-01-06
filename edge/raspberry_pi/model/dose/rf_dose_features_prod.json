@@ -1,0 +1,33 @@
+{
+  "features": [
+    "soil1_pre_mean",
+    "soil1_pre_std",
+    "soil1_pre_min",
+    "soil1_pre_max",
+    "soil2_pre_mean",
+    "soil2_pre_std",
+    "soil2_pre_min",
+    "soil2_pre_max",
+    "soil_avg_pre_mean",
+    "soil_avg_pre_std",
+    "soil_avg_pre_min",
+    "soil_avg_pre_max",
+    "soil_diff_pre_mean",
+    "soil_diff_pre_std",
+    "soil_diff_pre_min",
+    "soil_diff_pre_max",
+    "temperature_pre_mean",
+    "temperature_pre_std",
+    "temperature_pre_min",
+    "temperature_pre_max",
+    "humidity_pre_mean",
+    "humidity_pre_std",
+    "humidity_pre_min",
+    "humidity_pre_max",
+    "delta_soil_avg_min_vs_pre_mean",
+    "soil_avg_at_event",
+    "soil_diff_at_event",
+    "temp_at_event",
+    "humidity_at_event"
+  ]
+}
