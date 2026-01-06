@@ -77,16 +77,23 @@ def build_feature_vector(data):
 
 def main():
     print("[INFO] Opening Bluetooth serial port:", PORT)
-    ser = serial.Serial(PORT, BAUDRATE, timeout=TIMEOUT)
 
-    # Load TinyML model once at startup
     model = EdgeIrrigationModel(
-        model_path="model/model.tflite", scaler_path="model/scaler.joblib"
+        model_path="model/model.tflite",
+        scaler_path="model/scaler.joblib",
     )
 
-    try:
-        while True:
+    ser = None
+
+    while True:
+        try:
+            if ser is None or not ser.is_open:
+                print("[INFO] Connecting to Bluetooth serial...")
+                ser = serial.Serial(PORT, BAUDRATE, timeout=TIMEOUT)
+                time.sleep(1)
+
             raw = ser.readline()
+
             if not raw:
                 time.sleep(0.1)
                 continue
@@ -101,83 +108,36 @@ def main():
 
             print(f"[BT] Raw line: {text}")
 
+            data = parse_telemetry(text)
+
+            print(
+                "[PARSED] "
+                f"S1={data['S1']:.1f}, "
+                f"S2={data['S2']:.1f}, "
+                f"T={data['T']:.1f}°C, "
+                f"H={data['H']:.1f}%, "
+                f"L={data['L']:.0f}"
+            )
+
+            features = build_feature_vector(data)
+            prob, label = model.predict(features)
+
+            decision = "WATER_ON" if label == 1 else "WATER_OFF"
+            print(f"[DECISION] {decision} (prob={prob:.3f})")
+
+        except serial.SerialException as e:
+            print(f"[WARN] Serial error: {e}")
             try:
-                data = parse_telemetry(text)
-                print(
-                    "[PARSED] "
-                    f"S1={data['S1']:.1f}, "
-                    f"S2={data['S2']:.1f}, "
-                    f"T={data['T']:.1f}°C, "
-                    f"H={data['H']:.1f}%, "
-                    f"L={data['L']:.0f}"
-                )
+                if ser:
+                    ser.close()
+            except Exception:
+                pass
+            ser = None
+            time.sleep(2)
 
-                # Build the 6-feature vector and run inference
-                features = build_feature_vector(data)
-                prob, label = model.predict(features)
-
-                decision = "WATER_ON" if label == 1 else "WATER_OFF"
-                print(
-                    f"[MODEL] features={features} "
-                    f"-> prob={prob:.3f}, decision={decision}"
-                )
-
-                # --- CSV logging ---
-
-                csv_path = "/home/pi/irrigation_log.csv"  # o la ruta que quieras
-
-                row = [
-                    datetime.now().isoformat(),
-                    data["S1"],
-                    data["S2"],
-                    data["T"],
-                    data["H"],
-                    data["L"],
-                    prob,
-                    label,
-                    decision,
-                ]
-
-                # Si no existe, se crea con cabecera; si existe, solo se añade
-                file_exists = os.path.isfile(csv_path)
-
-                with open(csv_path, "a", newline="") as f:
-                    writer = csv.writer(f)
-                    if not file_exists:
-                        writer.writerow(
-                            [
-                                "timestamp",
-                                "soil1",
-                                "soil2",
-                                "temp",
-                                "humidity",
-                                "ldr",
-                                "prob",
-                                "label",
-                                "decision",
-                            ]
-                        )
-                    writer.writerow(row)
-
-                # Send decision back to ESP32 over Bluetooth
-                try:
-                    msg = f"DECISION:{decision}\n"
-                    ser.write(msg.encode("utf-8"))
-                    ser.flush()
-                    print(f"[BT-TX] Sent to ESP32: {msg.strip()}")
-                except Exception as e:
-                    print(f"[WARN] Could not send decision over BT: {e}")
-
-            except ValueError as e:
-                print(f"[WARN] Could not parse telemetry: {e}")
-            except Exception as e:
-                print(f"[ERROR] Inference failed: {e}")
-
-    except KeyboardInterrupt:
-        print("\n[INFO] Stopping bt_inference_service...")
-    finally:
-        ser.close()
-        print("[INFO] Serial port closed.")
+        except Exception as e:
+            print(f"[ERROR] Unexpected error: {e}")
+            time.sleep(1)
 
 
 if __name__ == "__main__":
