@@ -36,7 +36,17 @@ int lastDoseSeconds = 0;
 
 // Safety switch: keep false for now (log-only mode).
 // When we are ready, we can set this true to enable timed actuation.
+
 bool ACTUATION_ENABLED = false;
+
+// --- Timed actuation state (non-blocking) ---
+// When enabled, WATER_ON + SEC will start the pump for SEC seconds.
+// WATER_OFF will stop immediately.
+bool pumpRunning = false;
+unsigned long pumpStopAtMs = 0;
+
+// Safety: clamp maximum seconds to prevent runaway watering.
+const int MAX_PUMP_SECONDS = 30;
 
 // Buffer for incoming UART lines from ESP32
 static const size_t DECISION_BUF_SIZE = 64;
@@ -95,6 +105,17 @@ void loop()
 
   // Check for manual pump commands from USB Serial (non-blocking when idle)
   handleManualPumpCommands();
+
+  // Non-blocking timed pump stop
+  if (ACTUATION_ENABLED && pumpRunning)
+  {
+    if ((long)(millis() - pumpStopAtMs) >= 0)
+    {
+      applyDecisionToPump(DECISION_WATER_OFF);
+      pumpRunning = false;
+      Serial.println(F("[PUMP] Timed watering finished (auto-off)."));
+    }
+  }
 
   if (now - lastSampleMs >= SAMPLE_INTERVAL_MS)
   {
@@ -283,11 +304,41 @@ void handleIncomingDecision()
             Serial.print(F(", seconds="));
             Serial.println(lastDoseSeconds);
 
-            // Safety: log-only mode by default. Do not actuate yet.
+            // Optional actuation (disabled by default)
             if (ACTUATION_ENABLED)
             {
-              // Placeholder for future timed actuation.
-              applyDecisionToPump(lastDecision);
+              // Clamp seconds for safety
+              int sec = lastDoseSeconds;
+              if (sec < 0)
+                sec = 0;
+              if (sec > MAX_PUMP_SECONDS)
+                sec = MAX_PUMP_SECONDS;
+
+              if (lastDecision == DECISION_WATER_ON)
+              {
+                if (sec == 0)
+                {
+                  Serial.println(F("[PUMP] WATER_ON received with SEC=0 (ignored)."));
+                }
+                else
+                {
+                  // Start / refresh timed watering
+                  applyDecisionToPump(DECISION_WATER_ON);
+                  pumpRunning = true;
+                  pumpStopAtMs = millis() + (unsigned long)sec * 1000UL;
+
+                  Serial.print(F("[PUMP] Timed watering started for "));
+                  Serial.print(sec);
+                  Serial.println(F(" s"));
+                }
+              }
+              else if (lastDecision == DECISION_WATER_OFF)
+              {
+                // Stop immediately
+                applyDecisionToPump(DECISION_WATER_OFF);
+                pumpRunning = false;
+                Serial.println(F("[PUMP] WATER_OFF received (immediate stop)."));
+              }
             }
           }
         }
@@ -306,7 +357,10 @@ void handleIncomingDecision()
           lastDoseSeconds = 0;
           Serial.println(F("[Arduino] Legacy decision WATER_OFF received."));
           if (ACTUATION_ENABLED)
+          {
             applyDecisionToPump(lastDecision);
+            pumpRunning = false;
+          }
         }
         else
         {

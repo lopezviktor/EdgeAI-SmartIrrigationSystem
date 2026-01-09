@@ -546,11 +546,11 @@ Week 8 successfully connected the final missing piece of the system: real pump h
 - Next step: integrate the **production** dose regressor into the Raspberry Pi inference service so that each decision cycle outputs a predicted pump duration (seconds), snapped to the allowed set {8, 14, 18, 24}, and then actuates the pump accordingly.
 
 **Reflection:**  
+Week 9 established the full, reproducible ML pipeline for the dose‑based controller and produced production‑ready artefacts. The most important engineering decision was to treat irrigation dose prediction as a supervised regression problem (seconds) and to enforce a strict training‑serving contract: the real‑time controller can only use features available at decision time. This led to filtering out POST‑response features for the production model and exporting an explicit feature list JSON to prevent silent feature ordering bugs.
 
+Although the initial labelled dataset is extremely small (4 pump events), the goal of this week was not to optimise accuracy but to validate correctness of the end‑to‑end workflow: (1) ground‑truth event labelling from real pump activations, (2) timestamp‑based window extraction robust to sampling irregularities, (3) feature engineering aligned with the physical process, (4) model training with LOOCV suitable for very small N, and (5) artefact export + smoke testing to confirm that inference reproduces training behaviour.
 
-
-
-
+The results (snapped MAE ≈ 6 s) are expected to be unstable at this stage and are mainly used as a baseline for future iterations. The clear next step is to collect additional irrigation cycles across different environmental conditions and pot states, then retrain and re‑evaluate. With more labelled events, we can tighten the dose boundaries, add optional trend features (e.g., soil_avg slope), and run more reliable cross‑validation. Week 10 will focus on deploying the exported production artefacts on the Raspberry Pi and closing the control loop to the Arduino actuator.
 
 ---
 
@@ -612,13 +612,27 @@ Week 8 successfully connected the final missing piece of the system: real pump h
   - Example runtime logs:
     - `[Arduino] Received from ESP32: CMD:WATER_OFF;SEC:0`
     - `[Arduino] Parsed CMD -> decision=WATER_OFF, seconds=0`
-- Implemented a safety‑first actuation gate:
-  - `ACTUATION_ENABLED = false` (log‑only / dry‑run mode).
-  - Incoming commands are stored internally (`lastDecision`, `lastDoseSeconds`) but **do not activate the pump yet**.
+- Implemented a safety‑first actuation gate and timed‑watering capability on Arduino:
+  - `ACTUATION_ENABLED = false` by default (log‑only / dry‑run mode).
+  - When enabled, `CMD:WATER_ON;SEC:<int>` triggers **timed pump activation** using a non‑blocking `millis()` timer.
+  - Added a hard safety clamp (`MAX_PUMP_SECONDS`) to prevent runaway watering.
 - Confirmed non‑blocking firmware behaviour:
   - Sensor telemetry continues to be sampled and transmitted periodically.
   - UART command reception is asynchronous, so command logs may appear interleaved with telemetry logs.
   - This behaviour is expected and validates correct embedded loop design.
+
+### Timed Pump Actuation Validation (Dry‑Run Hardware Test)
+
+- Performed a controlled actuator test without watering the plant:
+  - Disconnected the outlet tube from the pot and routed it into an external container.
+  - Temporarily enabled Arduino actuation (`ACTUATION_ENABLED = true`) for the test session.
+- Issued a one‑shot 8‑second command from the Raspberry Pi to validate the full control path end‑to‑end:
+  - Raspberry Pi transmitted: `CMD:WATER_ON;SEC:8`
+  - ESP32 parsed and forwarded over UART: `CMD:WATER_ON;SEC:8`
+  - Arduino received, parsed, and executed timed actuation via TIP122.
+- Observed expected actuator behaviour via runtime logs:
+  - Pump ON (TIP122 activated) → ran for 8 s → Pump OFF (auto‑off).
+- After validation, the system was returned to safe observation mode (override removed; actuation can be disabled again for unattended runs).
 
 ### Result
 - The system now supports a complete closed loop:
@@ -626,7 +640,7 @@ Week 8 successfully connected the final missing piece of the system: real pump h
   - **ESP32 → RPi:** telemetry over Bluetooth SPP
   - **RPi:** robust parsing + rule‑based ON/OFF + RF dose inference (production features)
   - **RPi → ESP32:** real control command `CMD:...;SEC:...`
-  - **ESP32 → Arduino:** UART command forwarding (actuation path ready)
+  - **ESP32 → Arduino:** UART command forwarding; Arduino parses `SEC` and timed actuation has been validated (TIP122 + pump auto‑off)`
 - ThingSpeak continues to receive telemetry and a consistent decision flag from the ESP32.
 
 **Reflection:**
