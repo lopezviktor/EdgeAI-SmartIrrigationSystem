@@ -546,5 +546,72 @@ Week 8 successfully connected the final missing piece of the system: real pump h
 - Next step: integrate the **production** dose regressor into the Raspberry Pi inference service so that each decision cycle outputs a predicted pump duration (seconds), snapped to the allowed set {8, 14, 18, 24}, and then actuates the pump accordingly.
 
 **Reflection:**  
-This phase established the foundations for a more realistic irrigation controller by moving from a binary classifier to a dose-aware Edge AI model. The project now includes a professional and reproducible dataset labelling workflow, a training-set builder based on real ground-truth irrigation events, and engineered features that capture both the pre-irrigation state and post-irrigation soil response dynamics. The next step is to train and evaluate a Random Forest regressor on the labelled dataset, export the model artefact, and integrate dose inference into the Raspberry Pi service for timed pump control.
+
+
+
+
+
+
+---
+
+## 🔹 Week 10 – Real‑Time Dose Inference Integration & Closed‑Loop Control (RPi ↔ ESP32 ↔ Arduino)
+**Date:** Early January 2026 (exact days not logged in the repo; work completed before the latest push/commit).
+
+**Goal:** Integrate the production Random Forest dose model into the Raspberry Pi inference service, replace the unreliable legacy ON/OFF TinyML gate with a data‑driven rule‑based controller, and close the full control loop back to the Arduino actuator via ESP32.
+
+### Bluetooth Telemetry Robustness (ESP32 → RPi)
+- Observed occasional corrupted / partial Bluetooth SPP lines (e.g., truncated key/value pairs) causing parsing failures.
+- Hardened the Raspberry Pi receiver to be production‑safe:
+  - Switched from `readline()` to a buffered chunk reader (`read(256)` + `rx_buffer`) and only processed complete lines terminated by `\n`.
+  - Added strict telemetry validation (requires `S1,S2,T,H,L`) and safe skipping of incomplete lines.
+- Outcome: stable ingestion of real telemetry every 3 minutes without crashing the inference loop.
+
+### Sensor Semantics Verified (Critical Calibration)
+- Confirmed the real sensor direction experimentally:
+  - **Higher raw readings = drier soil**.
+  - Watering directly above the sensor caused an immediate drop (e.g., S1 ~551 → ~410, S2 ~522 → ~310).
+- This resolved confusion between ThingSpeak graphs and runtime readings and enabled correct threshold design.
+
+### ON/OFF Decision: Migrated to Rule‑Based Gating (Hysteresis)
+- The legacy TinyML ON/OFF path (TFLite + MinMaxScaler) produced unreliable probabilities due to distribution mismatch (temperature and soil values outside the scaler’s fitted min/max range) and a 6‑feature contract that did not reflect the current deployment conditions.
+- Replaced ON/OFF inference with an explainable, robust gate based on `soil_avg = (soil1 + soil2)/2`:
+  - Start watering when **soil_avg ≥ 521** (dry threshold derived from the real pump dataset: ~75th percentile in the 60‑minute PRE window).
+  - Stop watering when **soil_avg ≤ 480** (wet threshold for hysteresis to prevent flapping).
+- Added a small dry‑condition simulation flag (`SIMULATE_DRY`) for deterministic end‑to‑end validation without waiting for natural soil drying; disabled by default.
+
+### Dose Model: Production Feature Contract & Online Feature Engineering
+- Integrated the production artefacts:
+  - `models/rf_dose_regressor_prod.joblib`
+  - `models/rf_dose_features_prod.json`
+- Fixed a deployment bug where the features JSON was loaded as a dict and mistakenly treated as a list (initially printing “1 features”). Corrected to read `{"features": [...]}` properly.
+- Implemented online feature engineering on the Raspberry Pi to match the training pipeline:
+  - Maintained a rolling PRE window of the last 10 samples (30 minutes at 3‑minute cadence).
+  - Computed the production feature set (29 features): PRE statistics + at‑event snapshot features.
+  - Predicted continuous seconds and snapped to the allowed set {8, 14, 18, 24}.
+- Confirmed correct runtime behaviour:
+  - When dry‑simulation was enabled, the pipeline produced a valid prediction (e.g., predicted ~19.6 s → snapped 18 s) and generated the corresponding command.
+
+### Closing the Control Loop (RPi → ESP32 → Arduino)
+- Implemented a single‑line control protocol emitted by the Raspberry Pi:
+  - `CMD:<WATER_ON|WATER_OFF>;SEC:<int>\n`
+- Enabled real TX (not shadow) over Bluetooth SPP using the same RFCOMM link.
+- Updated ESP32 Bluetooth RX parsing to support the new command format (while keeping legacy `DECISION:` compatibility):
+  - Parsed `CMD:...;SEC:...`
+  - Updated `decisionFlag` for ThingSpeak field6
+  - Forwarded the command over UART to the Arduino.
+- Verified end‑to‑end runtime logs:
+  - ESP32 received: `CMD:WATER_OFF;SEC:0`
+  - Parsed correctly and forwarded to Arduino: `CMD:WATER_OFF;SEC:0`
+
+### Result
+- The system now supports a complete closed loop:
+  - **Arduino → ESP32:** real telemetry over UART
+  - **ESP32 → RPi:** telemetry over Bluetooth SPP
+  - **RPi:** robust parsing + rule‑based ON/OFF + RF dose inference (production features)
+  - **RPi → ESP32:** real control command `CMD:...;SEC:...`
+  - **ESP32 → Arduino:** UART command forwarding (actuation path ready)
+- ThingSpeak continues to receive telemetry and a consistent decision flag from the ESP32.
+
+**Reflection:**
+This phase significantly increased engineering maturity by addressing the most common real‑world IoT/Edge AI failure mode: training–serving mismatch and unreliable streaming inputs. Replacing the legacy TinyML ON/OFF gate with a calibrated hysteresis controller ensures safe, explainable behaviour, while the Random Forest dose model provides the “Edge AI” intelligence where it adds genuine value: selecting irrigation duration. The closed‑loop command path (RPi → ESP32 → Arduino) is now operational, enabling timed pump control once the Arduino command handler is finalised for live actuation.
 
