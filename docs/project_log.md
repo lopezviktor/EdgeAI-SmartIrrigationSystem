@@ -643,6 +643,23 @@ The results (snapped MAE ≈ 6 s) are expected to be unstable at this stage and 
   - **ESP32 → Arduino:** UART command forwarding; Arduino parses `SEC` and timed actuation has been validated (TIP122 + pump auto‑off)`
 - ThingSpeak continues to receive telemetry and a consistent decision flag from the ESP32.
 
+### ThingSpeak Telemetry Update – Decision vs Dose
+
+- Updated the ThingSpeak channel schema to better reflect the new dose‑based irrigation logic.
+- **Field 6** now represents the binary irrigation decision only:
+  - `0` = WATER_OFF  
+  - `1` = WATER_ON
+- **Field 7** was added to store the irrigation duration in seconds (`watering_seconds`), as predicted by the Edge AI dose model.
+- This separation avoids overloading a single field and allows clearer analysis of:
+  - *when* the system decides to irrigate (Field 6),
+  - *how much* water is applied (Field 7).
+- Verified correct cloud uploads from the ESP32:
+  - When no irrigation is triggered: `field6 = 0`, `field7 = 0`.
+  - During timed irrigation events: `field6 = 1`, `field7 ∈ {8, 14, 18, 24}`.
+- Updated ThingSpeak visualisations accordingly:
+  - Field 6 configured as a step plot (binary state).
+  - Field 7 displayed as a discrete time‑series of irrigation durations.
+
 **Reflection:**
 This phase significantly increased engineering maturity by addressing the most common real‑world IoT/Edge AI failure mode: training–serving mismatch and unreliable streaming inputs. Replacing the legacy TinyML ON/OFF gate with a calibrated hysteresis controller ensures safe, explainable behaviour, while the Random Forest dose model provides the “Edge AI” intelligence where it adds genuine value: selecting irrigation duration. The closed‑loop command path (RPi → ESP32 → Arduino) is now operational, enabling timed pump control once the Arduino command handler is finalised for live actuation.
 

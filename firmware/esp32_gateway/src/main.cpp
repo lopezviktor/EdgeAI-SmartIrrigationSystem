@@ -21,6 +21,7 @@ const char *TS_URL = TS_UPDATE_URL;
 
 // Irrigation decision: 0 = WATER_OFF, 1 = WATER_ON
 int decisionFlag = 0;
+int wateringSeconds = 0; // irrigation duration received from RPi (0,8,14,18,24)
 
 // Simple synthetic sensor model:
 // We alternate between a "WET" phase and a "DRY" phase
@@ -120,7 +121,8 @@ void uploadToThingSpeak()
                "&field3=" + String(g_state.temp) +
                "&field4=" + String(g_state.hum) +
                "&field5=" + String(g_state.light) +
-               "&field6=" + String(decisionFlag);
+               "&field6=" + String(decisionFlag) +   // 0 o 1
+               "&field7=" + String(wateringSeconds); // 0,8,14,18,24
 
   Serial.println("[TS] Uploading telemetry + decision");
   Serial.println("[TS] URL: " + url);
@@ -272,6 +274,7 @@ void loop()
         secPart.trim();
 
         int seconds = secPart.toInt();
+        wateringSeconds = seconds;
 
         Serial.print("[ESP32] Parsed CMD: ");
         Serial.print(cmdPart);
