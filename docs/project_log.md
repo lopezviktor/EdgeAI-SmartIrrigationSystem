@@ -591,6 +591,7 @@ Week 8 successfully connected the final missing piece of the system: real pump h
 - Confirmed correct runtime behaviour:
   - When dry‑simulation was enabled, the pipeline produced a valid prediction (e.g., predicted ~19.6 s → snapped 18 s) and generated the corresponding command.
 
+
 ### Closing the Control Loop (RPi → ESP32 → Arduino)
 - Implemented a single‑line control protocol emitted by the Raspberry Pi:
   - `CMD:<WATER_ON|WATER_OFF>;SEC:<int>\n`
@@ -602,6 +603,22 @@ Week 8 successfully connected the final missing piece of the system: real pump h
 - Verified end‑to‑end runtime logs:
   - ESP32 received: `CMD:WATER_OFF;SEC:0`
   - Parsed correctly and forwarded to Arduino: `CMD:WATER_OFF;SEC:0`
+
+### Arduino Command Parsing & Actuation Readiness (UART RX)
+
+- Updated Arduino firmware to support the new control protocol:
+  - `CMD:<WATER_ON|WATER_OFF>;SEC:<int>`
+- Verified that the Arduino correctly receives commands from the ESP32 over UART and parses them deterministically:
+  - Example runtime logs:
+    - `[Arduino] Received from ESP32: CMD:WATER_OFF;SEC:0`
+    - `[Arduino] Parsed CMD -> decision=WATER_OFF, seconds=0`
+- Implemented a safety‑first actuation gate:
+  - `ACTUATION_ENABLED = false` (log‑only / dry‑run mode).
+  - Incoming commands are stored internally (`lastDecision`, `lastDoseSeconds`) but **do not activate the pump yet**.
+- Confirmed non‑blocking firmware behaviour:
+  - Sensor telemetry continues to be sampled and transmitted periodically.
+  - UART command reception is asynchronous, so command logs may appear interleaved with telemetry logs.
+  - This behaviour is expected and validates correct embedded loop design.
 
 ### Result
 - The system now supports a complete closed loop:

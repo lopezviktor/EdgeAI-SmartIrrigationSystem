@@ -30,6 +30,14 @@ enum PumpDecision
 
 PumpDecision lastDecision = DECISION_UNKNOWN;
 
+// Seconds requested by the controller (RPi) for the current command.
+// We keep it for logging / later actuation enablement.
+int lastDoseSeconds = 0;
+
+// Safety switch: keep false for now (log-only mode).
+// When we are ready, we can set this true to enable timed actuation.
+bool ACTUATION_ENABLED = false;
+
 // Buffer for incoming UART lines from ESP32
 static const size_t DECISION_BUF_SIZE = 64;
 char decisionBuf[DECISION_BUF_SIZE];
@@ -207,7 +215,12 @@ void handleManualPumpCommands()
 
 // -----------------------------------------------------------------
 // Handle incoming decision commands from ESP32/Raspberry Pi
-// Expected format: "DECISION:WATER_ON" or "DECISION:WATER_OFF"
+// Expected formats (newline-terminated):
+//   CMD:WATER_ON;SEC:14
+//   CMD:WATER_OFF;SEC:0
+// Legacy (still supported):
+//   DECISION:WATER_ON
+//   DECISION:WATER_OFF
 // ----------------------------------------------------------------
 void handleIncomingDecision()
 {
@@ -232,15 +245,68 @@ void handleIncomingDecision()
         Serial.print(F("[Arduino] Received from ESP32: "));
         Serial.println(decisionBuf);
 
-        if (strcmp(decisionBuf, "DECISION:WATER_ON") == 0)
+        String line = String(decisionBuf);
+        line.trim();
+
+        // New format: CMD:WATER_ON;SEC:14
+        if (line.startsWith("CMD:"))
+        {
+          int secIdx = line.indexOf(";SEC:");
+          if (secIdx == -1)
+          {
+            Serial.println(F("[Arduino] CMD missing ';SEC:' (ignored)."));
+          }
+          else
+          {
+            String cmdPart = line.substring(4, secIdx);  // after "CMD:"
+            String secPart = line.substring(secIdx + 5); // after ";SEC:"
+            cmdPart.trim();
+            secPart.trim();
+
+            lastDoseSeconds = secPart.toInt();
+
+            if (cmdPart == "WATER_ON")
+            {
+              lastDecision = DECISION_WATER_ON;
+            }
+            else if (cmdPart == "WATER_OFF")
+            {
+              lastDecision = DECISION_WATER_OFF;
+            }
+            else
+            {
+              lastDecision = DECISION_UNKNOWN;
+            }
+
+            Serial.print(F("[Arduino] Parsed CMD -> decision="));
+            Serial.print(cmdPart);
+            Serial.print(F(", seconds="));
+            Serial.println(lastDoseSeconds);
+
+            // Safety: log-only mode by default. Do not actuate yet.
+            if (ACTUATION_ENABLED)
+            {
+              // Placeholder for future timed actuation.
+              applyDecisionToPump(lastDecision);
+            }
+          }
+        }
+        // Legacy format
+        else if (line == "DECISION:WATER_ON")
         {
           lastDecision = DECISION_WATER_ON;
-          applyDecisionToPump(lastDecision);
+          lastDoseSeconds = 0;
+          Serial.println(F("[Arduino] Legacy decision WATER_ON received."));
+          if (ACTUATION_ENABLED)
+            applyDecisionToPump(lastDecision);
         }
-        else if (strcmp(decisionBuf, "DECISION:WATER_OFF") == 0)
+        else if (line == "DECISION:WATER_OFF")
         {
           lastDecision = DECISION_WATER_OFF;
-          applyDecisionToPump(lastDecision);
+          lastDoseSeconds = 0;
+          Serial.println(F("[Arduino] Legacy decision WATER_OFF received."));
+          if (ACTUATION_ENABLED)
+            applyDecisionToPump(lastDecision);
         }
         else
         {
