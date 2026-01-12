@@ -1,237 +1,259 @@
-# 🌱 Smart Irrigation System – IoT + Edge AI (TinyML)
 
-## 1. Project Overview
+# 🌱 Smart Irrigation System — IoT + Edge AI (Dose-Based Control)
 
-This project implements a **Smart Irrigation System** that leverages **Internet of Things (IoT)** and **Edge Artificial Intelligence (TinyML)** technologies to automate and optimize the watering process in diverse environments — from small private gardens to large agricultural fields.  
-
-The system continuously monitors environmental and soil conditions through low-cost sensors and performs local inference on a **Rasberrry Pi Edge AI node** using a trained decision-tree model (or TinyML equivalent), while the **Arduino UNO R4** handles sensing and actuation and the **ESP32** manages cloud transmission to ThingSpeak.
-  
-Based on the prediction, it controls the irrigation mechanism autonomously while transmitting sensor data to the cloud via an **ESP32 Gateway** for visualization and analysis on **ThingSpeak Cloud**.  
-
-By combining **local decision-making (Edge AI)** and **cloud-based analytics**, this architecture enables efficient, scalable, and sustainable water management with minimal human intervention.
+York St John University — **COM6017M: The Internet of Things (Level 6)**  
+Student: **Victor López**  
+Assessment: **Portfolio (Artefact + 2000-word report)**
 
 ---
 
-## 2. Problem Statement
+## 1) Project Overview
 
-Traditional irrigation systems—whether in large agricultural fields or small private gardens—often rely on manual scheduling or fixed-timer control, leading to inefficient water use and suboptimal plant growth.  
-Such approaches fail to adapt to real-time environmental conditions such as soil moisture, temperature, and light intensity, which are critical factors for plant health and sustainable water management.
+This project implements a **Smart Irrigation System** that combines **IoT**, **Machine-to-Machine (M2M) communication**, **Edge AI**, and **cloud analytics** to automate watering based on real sensor data.
 
-This project proposes the design and implementation of a **Smart Irrigation System** based on **IoT and Edge Artificial Intelligence (TinyML)**.  
-The system monitors environmental variables and autonomously decides the optimal watering action using local inference, without continuous cloud dependence.  
-By integrating low-cost sensors, **Edge AI inference** on **Raspberry Pi Edge AI node**, and **cloud-based analytics** through **ThingSpeak**, the system provides a scalable solution applicable to both **small-scale home gardens** and **large agricultural environments**, ensuring **water efficiency and healthy plant growth**.
+Unlike basic timer-based irrigation, this system performs **local decision-making at the edge**:
+- A **rule-based gate with hysteresis** decides **WHEN** to irrigate (safe and explainable).
+- A **Random Forest dose regressor** predicts **HOW MUCH** to irrigate (pump duration in seconds), running on a **Raspberry Pi Edge AI node**.
 
-
----
-
-## 3. Objectives
-
-- Develop a **reliable IoT-based irrigation system** capable of autonomous operation.  
-- Implement **Edge AI (TinyML)** to perform on-device inference (“water” / “no water”) without cloud dependency.  
-- Enable **real-time data transmission and visualization** through **ThingSpeak Cloud**.  
-- Demonstrate the benefits of combining **IoT, Edge AI, and Cloud** for sustainable resource management.
+Telemetry and decisions are uploaded to **ThingSpeak** for monitoring and analysis.
 
 ---
 
-## 4. System Architecture
+## 2) Problem Statement
 
-> The full circuit simulation and schematic are available in `/hardware/tinkercad/`.  
-> Detailed architecture diagrams are stored in `/docs/diagrams/`.
+Manual irrigation and fixed schedules often waste water and fail to adapt to changing conditions (soil moisture drift, indoor heating, humidity, day/night cycles). This project addresses that by:
+- continuously sensing soil and environment,
+- making control decisions locally (Edge AI),
+- applying controlled irrigation doses via a peristaltic pump,
+- logging and visualising the system behaviour in the cloud.
 
-### 4.1 System Context Diagram
+---
+
+## 3) Key Features
+
+- **Real sensors**: 2× soil moisture, DHT22 (temperature + humidity), LDR (light)
+- **Closed-loop control**: sensor → edge inference → command → actuator
+- **M2M communication**:
+  - **UART**: Arduino ↔ ESP32
+  - **Bluetooth SPP**: ESP32 ↔ Raspberry Pi
+- **Edge AI**:
+  - ON/OFF gating using **soil_avg hysteresis**
+  - Dose selection using **RandomForestRegressor** (seconds)
+- **Cloud visibility (ThingSpeak)**:
+  - live telemetry, decision flag, and watering duration
+- **Safety-first actuation**:
+  - timed pump activation, clamp limits, and a dry-run mode
+
+---
+
+## 4) System Architecture
+
+### 4.0 Architecture Diagrams
+
+The following diagrams document the overall design and data flow of the system:
+
+#### System Context Diagram
 <p align="center">
   <img src="docs/diagrams/system_context_diagram.drawio.png" alt="System Context Diagram" width="65%">
 </p>
 
-### 4.2 Data Flow Diagram (M2M)
+#### Data Flow Diagram (M2M)
 <p align="center">
   <img src="docs/diagrams/data_flow_diagram.drawio.png" alt="Data Flow Diagram" width="70%">
 </p>
 
-### 4.3 Hardware Architecture
+#### Hardware Architecture Diagram
 <p align="center">
   <img src="docs/diagrams/hardware_architecture.drawio.png" alt="Hardware Architecture Diagram" width="70%">
 </p>
 
-### 4.4 Components
+### 4.1 Roles
 
-| Category | Component | Description |
-|-----------|------------|-------------|
-| **Microcontrollers / Compute Nodes** | Arduino UNO R4 WiFi, Raspberry Pi (Edge AI), ESP32 (Cloud Gateway) | Distributed IoT architecture: Arduino = sensing & actuation, Raspberry Pi = Edge AI inference, ESP32 = ThingSpeak upload |
-| **Sensors** | 2× Soil Moisture Sensors, DHT22, LDR | Environmental and soil condition sensing |
-| **Actuator** | Peristaltic Water Pump | Controls irrigation based on Edge AI prediction from Raspberry Pi |
-| **Power Supply** | 5 V / 12 V DC Adapter | Provides power to sensors, controllers and pump |
-| **Connectivity** | USB Serial (Arduino ↔ Raspberry Pi), UART or Wi‑Fi (Raspberry Pi ↔ ESP32) | Local wired M2M communication for data and commands; ESP32 handles wireless cloud link |
-| **Cloud Platform** | ThingSpeak | IoT data analytics, visualization and dashboards via ESP32 Gateway |
+- **Arduino UNO R4 WiFi (Sensor + Actuator Node)**
+  - Reads sensors
+  - Executes timed pump actuation via TIP122 driver
+  - Sends telemetry to ESP32 via UART
+  - Receives commands from ESP32 via UART
 
----
+- **ESP32 (Gateway + Cloud Uplink)**
+  - Parses UART telemetry from Arduino
+  - Forwards telemetry to Raspberry Pi over Bluetooth SPP
+  - Receives control commands from Raspberry Pi and relays them to Arduino
+  - Uploads telemetry + decisions to ThingSpeak over HTTP
 
-## 5. Data Flow Description
+- **Raspberry Pi (Edge AI Node)**
+  - Receives telemetry via Bluetooth SPP
+  - Runs real-time control logic:
+    - ON/OFF hysteresis gate
+    - Random Forest regression for pump duration
+  - Sends commands back to ESP32 (`CMD:...;SEC:...`)
 
-1. Environmental sensors collect **soil moisture**, **temperature**, and **light intensity** data.  
-2. The **Arduino UNO R4** sends raw sensor readings via **USB Serial** to the **Raspberry Pi Edge AI node**.  
-3. The **Raspberry Pi** applies **Min–Max normalization**, performs **Edge AI inference** (decision tree / TinyML model), and sends back pump control commands (`P1` = ON / `P0` = OFF) to the Arduino.  
-4. The **Raspberry Pi** forwards the complete telemetry frame (`S1,S2,T,H,L,PRED`) to the **ESP32 gateway** through **UART or Wi-Fi**.  
-5. The **ESP32** uploads the data to **ThingSpeak Cloud** using HTTPS, enabling real-time monitoring and historical analysis.  
-6. ThingSpeak visualizes environmental parameters and AI predictions in its dashboard interface.
+### 4.2 M2M Data Flow (High Level)
 
----
+```text
+[Soil1, Soil2, DHT22, LDR]
+          ↓
+ Arduino UNO R4 (sensing + actuation)
+          ↓ UART
+      ESP32 Gateway (routing + cloud)
+          ↓ Bluetooth SPP
+ Raspberry Pi (Edge AI inference)
+          ↑ Bluetooth SPP commands
+      ESP32 Gateway
+          ↑ UART commands
+ Arduino (timed pump control)
 
-## 6. Edge AI (TinyML)
+ ESP32 → ThingSpeak (HTTP)
+```
 
-- The Edge AI inference is now executed on a **Raspberry Pi Edge AI node**, which receives raw sensor data from the Arduino via USB Serial.  
-- The Pi applies **Min–Max normalization** (same parameters used during training) and performs inference using a **Decision Tree** or **TinyML (TFLite)** model exported from the Python environment.  
-- The trained model was developed on a **custom dataset** of environmental parameters stored in `/data/dataset.csv`.  
-- **Classification goal:**  
-  - `0 → No Water`  
-  - `1 → Water`  
-- The inference output (`PRED`) is used to control the irrigation pump through serial commands sent back to the Arduino (`P1` = ON / `P0` = OFF).  
-- This design ensures:  
-  - **Low latency** and **offline operation** via local inference.  
-  - **Modular scalability**, since the Pi can run Python (sklearn/TFLite) models and even retrain or update them autonomously.  
-  - **Energy efficiency**, as the Arduino only performs sensing and actuation.
-
----
-
-## 7. Cloud Platform (ThingSpeak)
-
-- **Platform:** MATLAB ThingSpeak IoT Analytics  
-- **Channel Fields:**
-  - `field1` → Soil Moisture Sensor 1  
-  - `field2` → Soil Moisture Sensor 2  
-  - `field3` → Air Temperature  
-  - `field4` → Light Intensity (LDR)  
-  - `field5` → TinyML Prediction (0 / 1)
-- Provides real-time **graphical visualization** and **data logging**.  
-- Dashboard screenshots and analysis results are stored in `/docs/media/`.
+> Architecture diagrams are stored in `docs/diagrams/`.
 
 ---
 
-## 8. Firmware Structure
+## 5) Control Protocol (RPi → ESP32 → Arduino)
 
-The `firmware` directory contains two independent but connected modules:
+The Raspberry Pi sends a single-line command:
 
-### 8.1 Arduino UNO R4 WiFi (Sensor & Actuator Node)
-**Path:** `/firmware/arduino_edge/`
+```text
+CMD:<WATER_ON|WATER_OFF>;SEC:<int>\n
+```
 
-Responsibilities:
-- Acquire raw sensor and environmental readings (soil moisture, temperature, humidity, light).  
-- Transmit sensor frames via **USB Serial** to the Raspberry Pi Edge AI node.  
-- Receive pump control commands (`P1` / `P0`) from the Raspberry Pi and activate or deactivate the peristaltic pump accordingly.  
-- Provide serial feedback confirming pump state.
+Examples:
+- `CMD:WATER_OFF;SEC:0`
+- `CMD:WATER_ON;SEC:14`
 
-### 8.2 ESP32 (Communication Gateway)
-**Path:** `/firmware/esp32_gateway/`
-
-Responsibilities:
-- Receive complete telemetry frames (`S1,S2,T,H,L,PRED`) from the Raspberry Pi via UART or Wi-Fi.  
-- Manage Wi-Fi connectivity and HTTPS communication.  
-- Upload telemetry and AI predictions to **ThingSpeak Cloud** for visualization.
-
-### 8.3 Raspberry Pi (Edge AI Node)
-**Path:** `/raspberry/`
-
-Responsibilities:
-- Receive raw sensor readings from the Arduino UNO R4 via **USB Serial**.  
-- Apply **Min–Max scaling** and perform **Edge AI inference** using a trained decision-tree or TinyML model.  
-- Send control commands (`P1` / `P0`) back to the Arduino based on inference results.  
-- Forward full telemetry to the ESP32 gateway for cloud upload.  
-- Optionally run as a background `systemd` service on boot for autonomous operation.
+The ESP32 forwards the same command over UART to the Arduino. The Arduino parses it deterministically and (if actuation is enabled) runs the pump for `SEC` seconds.
 
 ---
 
-## 9. System Design (Tinkercad Simulation)
+## 6) Edge AI Design
 
-The electronic circuit was simulated using **Tinkercad** for early validation of sensor readings and pump control.  
-Components include:
-- Two soil moisture sensors (analog inputs).  
-- DHT22 for temperature and humidity.  
-- LDR for light intensity.  
-- TIP120 transistor driver for the peristaltic pump.  
+### 6.1 Baseline (Deprecated) — TinyML ON/OFF
 
-The public simulation link and configuration details are provided in `/hardware/tinkercad/README.md`.
+Early iterations used a **TinyML-style binary classifier** trained on a **synthetic dataset** to validate the end-to-end pipeline (data collection → cloud → training → deployment). This baseline is kept for documentation and comparison, but it is **not** the final controller.
 
----
+### 6.2 Current Production Approach — Dose-Based Edge AI
 
-## 10. Data Collection and Model Evaluation
+The deployed system uses a two-layer controller:
 
-- Data recorded under varying environmental conditions.  
-- Stored in `/data/dataset.csv`.  
-- Used for TinyML model training and validation.  
-- Evaluation metrics include **accuracy**, **precision**, **latency**, and **memory footprint**.  
-- Graphical summaries and logs are archived in `/docs/media/`.
+1) **ON/OFF gating (explainable, safe)**
+- Computes `soil_avg = (soil1 + soil2) / 2`
+- Applies **hysteresis thresholds** to prevent flapping:
+  - Start watering when the soil is dry (above a dry threshold)
+  - Stop watering once the soil reaches a wet threshold
 
-### 10.1 Baseline and Synthetic Dataset (Initial Phase)
+2) **Dose prediction (Edge AI model)**
+- A **RandomForestRegressor** predicts `watering_seconds`
+- Output is snapped to an allowed set:
+  - `{8, 14, 18, 24}` seconds
 
-During the early stage of the project, a **synthetic dataset** was created to validate the complete end-to-end pipeline, including data preprocessing, model training, TinyML export, and edge deployment.
+**Training–serving contract**
+- The production model is exported with an explicit feature list to prevent silent feature-order bugs:
+  - `models/rf_dose_regressor_prod.joblib`
+  - `models/rf_dose_features_prod.json`
 
-This baseline dataset was **not based on real sensor measurements** and was intentionally used only for:
-- Pipeline validation
-- Early model prototyping
-- Testing TinyML deployment constraints
-
-Once the physical Smart Irrigation System became fully operational, the synthetic dataset was **deprecated** and replaced by a **real-world dataset collected from the live system**, covering multiple irrigation cycles (LOW, MEDIUM, HIGH, SUPER-HIGH).
-
-All experiments, evaluations, and conclusions presented in this project are based **exclusively on real sensor data**.
+**Decision-time features only**
+- Training includes a strict “production mode” filter so the model only uses features available at inference time.
 
 ---
 
-## 11. Dashboard and Visualization
+## 7) ThingSpeak Channel Schema
 
-The **ThingSpeak Dashboard** provides real-time insights into environmental parameters and irrigation actions.  
-Displayed metrics include:
-- Soil moisture (2 channels)  
-- Temperature  
-- Light intensity  
-- Irrigation decision (binary)  
-- Calculated water efficiency metric  
+The ESP32 uploads telemetry and control signals to ThingSpeak.
 
----
-
-## 12. Project Roadmap
-
-| Week | Focus | Deliverables |
-|------|--------|--------------|
-| 1 | Architecture & Planning | Problem statement, diagrams, GitHub repository |
-| 2–3 | Hardware Setup | Sensor validation, UART communication |
-| 4–5 | Data Collection & Model Training | Dataset creation, TinyML model |
-| 6 | Cloud Integration | ThingSpeak dashboard setup |
-| 7 | Testing & Validation | End-to-end data flow testing |
-| 8–9 | Report Writing | Academic report draft |
-| 10 | Final Presentation | Demonstration video and project defense |
+- **field1** → `soil1`
+- **field2** → `soil2`
+- **field3** → `temperature_c`
+- **field4** → `humidity_percent`
+- **field5** → `light_ldr`
+- **field6** → `decision_flag` (`0` = WATER_OFF, `1` = WATER_ON)
+- **field7** → `watering_seconds` (`0` or one of `{8,14,18,24}`)
 
 ---
 
-## 13. Tools and Technologies
+## 8) Repository Structure (Key Paths)
 
-- **Arduino IDE / PlatformIO** — firmware development  
-- **TensorFlow Lite Micro** — TinyML model deployment  
-- **ThingSpeak IoT Analytics** — cloud storage and visualization  
-- **Tinkercad / Draw.io** — circuit and diagram design  
-- **GitHub** — version control and documentation  
-- **Python** — data preprocessing and model training  
+```text
+firmware/
+  arduino_edge/              # Arduino sensor + actuator node
+  esp32_gateway/             # ESP32 gateway: UART ↔ BT ↔ ThingSpeak
+edge/
+  raspberry_pi/
+    app/                     # BT inference service (real-time control)
+    model/                   # model loading utilities
+    config/                  # runtime config
+scripts/
+  build_training_set.py      # window extraction + feature engineering
+  train_rf_dose_model.py     # RF regressor training + evaluation
+  smoke_test_prod_inference.py
+models/
+  rf_dose_regressor_prod.joblib
+  rf_dose_features_prod.json
+data/
+  labels/irrigation_events.csv
+docs/
+  project_log.md
+  diagrams/
+  figures/
+```
 
 ---
 
-## 14. Security and Ethics
+## 9) Quick Start (High Level)
 
-- No personal or sensitive data are collected.  
-- Implements **data minimization** and **privacy-by-design** principles.  
-- Aligns with **UN Sustainable Development Goal 6 (Clean Water and Sanitation)** by promoting responsible water use through automated control.  
-- Follows **Responsible IoT design** principles ensuring transparency, accessibility, and scalability.
+### 9.0 Circuit Schematic (Simulation)
+
+The electronic circuit was validated using a simulation-based approach during early development. The schematic includes:
+- dual soil moisture sensors (analogue inputs),
+- DHT22 temperature and humidity sensor,
+- LDR for ambient light sensing,
+- TIP122 transistor driver stage for the peristaltic pump.
+
+<p align="center">
+  <img src="hardware/tinkercad/tinkercad_circuit_complete.png" alt="Circuit Schematic" width="70%">
+</p>
+
+The simulation files and notes are stored in `hardware/tinkercad/`.
+
+### 9.1 Hardware
+- Arduino UNO R4 WiFi
+- ESP32
+- Raspberry Pi
+- Sensors: 2× soil moisture, DHT22, LDR
+- Actuator: peristaltic pump + TIP122 driver + flyback diode + base resistor
+
+### 9.2 Run the System
+1. Flash Arduino firmware: reads sensors, sends UART telemetry, receives commands.
+2. Flash ESP32 gateway: reads UART telemetry, talks BT SPP to RPi, uploads to ThingSpeak.
+3. On Raspberry Pi:
+   - pair with ESP32 via Bluetooth SPP
+   - bind RFCOMM device (e.g., `/dev/rfcomm0`)
+   - run the inference service (real-time control loop)
+
+> Detailed setup notes and development history are tracked in `docs/project_log.md`.
 
 ---
 
-## 15. License
+## 10) Safety Notes
 
-Licensed under the **MIT License**.  
-This project may be reused for educational or research purposes with appropriate citation.
+- The Arduino supports a **dry-run / log-only mode** so testing can be performed without energising the pump.
+- Timed irrigation uses non-blocking logic and includes a maximum duration clamp to avoid runaway watering.
+- Recommended: verify pump routing into a container before watering a real plant.
 
 ---
 
-## 16. Academic Context
+## 11) Academic & Sustainability Context
 
-**Institution:** York St John University  
-**Module:** *The Internet of Things (Level 6)*  
-**Project Type:** Individual IoT + Edge AI Artefact + Technical Report  
-**Submission Deadline:** 16 January 2026  
+This artefact demonstrates:
+- IoT sensing + actuation
+- M2M communication (UART + Bluetooth)
+- Edge AI inference on-device (Raspberry Pi)
+- Cloud analytics/visualisation (ThingSpeak)
+
+It supports responsible water use and aligns with sustainable resource management goals.
+
+---
+
+## 12) License
+
+MIT License.

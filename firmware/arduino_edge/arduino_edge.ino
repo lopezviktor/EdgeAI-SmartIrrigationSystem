@@ -37,7 +37,7 @@ int lastDoseSeconds = 0;
 // Safety switch: keep false for now (log-only mode).
 // When we are ready, we can set this true to enable timed actuation.
 
-bool ACTUATION_ENABLED = false;
+bool ACTUATION_ENABLED = true;
 
 // --- Timed actuation state (non-blocking) ---
 // When enabled, WATER_ON + SEC will start the pump for SEC seconds.

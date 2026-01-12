@@ -87,10 +87,10 @@ def main():
     # Thresholds derived from your real pump dataset around irrigation events:
     # - DRY ~ 75th percentile of soil_avg during the 60 minutes before irrigation
     # - WET ~ conservative stop threshold (hysteresis) so we don't flap
-    SOIL_AVG_DRY = 521.0
-    SOIL_AVG_WET = 480.0
+    SOIL_AVG_DRY = 500.0
+    SOIL_AVG_WET = 460.0
 
-    SIMULATE_DRY = False  # set back to False after the test
+    SIMULATE_DRY = False
     SIM_DRY_VALUE = 530.0
 
     watering_state = False
