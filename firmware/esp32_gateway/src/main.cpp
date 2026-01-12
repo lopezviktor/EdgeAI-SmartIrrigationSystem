@@ -21,6 +21,7 @@ const char *TS_URL = TS_UPDATE_URL;
 
 // Irrigation decision: 0 = WATER_OFF, 1 = WATER_ON
 int decisionFlag = 0;
+int wateringSeconds = 0; // irrigation duration received from RPi (0,8,14,18,24)
 
 // Simple synthetic sensor model:
 // We alternate between a "WET" phase and a "DRY" phase
@@ -120,7 +121,8 @@ void uploadToThingSpeak()
                "&field3=" + String(g_state.temp) +
                "&field4=" + String(g_state.hum) +
                "&field5=" + String(g_state.light) +
-               "&field6=" + String(decisionFlag);
+               "&field6=" + String(decisionFlag) +   // 0 o 1
+               "&field7=" + String(wateringSeconds); // 0,8,14,18,24
 
   Serial.println("[TS] Uploading telemetry + decision");
   Serial.println("[TS] URL: " + url);
@@ -256,33 +258,75 @@ void loop()
     Serial.print("[ESP32] Raw BT line: ");
     Serial.println(line);
 
-    if (line.length() > 0 && line.startsWith("DECISION:"))
+    // New format: CMD:WATER_ON;SEC:14
+    if (line.length() > 0 && line.startsWith("CMD:"))
+    {
+      int secIndex = line.indexOf(";SEC:");
+      if (secIndex == -1)
+      {
+        Serial.println("[ESP32] CMD missing ';SEC:'. Ignoring.");
+      }
+      else
+      {
+        String cmdPart = line.substring(4, secIndex);  // after "CMD:"
+        String secPart = line.substring(secIndex + 5); // after ";SEC:"
+        cmdPart.trim();
+        secPart.trim();
+
+        int seconds = secPart.toInt();
+        wateringSeconds = seconds;
+
+        Serial.print("[ESP32] Parsed CMD: ");
+        Serial.print(cmdPart);
+        Serial.print(", seconds=");
+        Serial.println(seconds);
+
+        // Update decision flag for ThingSpeak
+        if (cmdPart == "WATER_ON")
+          decisionFlag = 1;
+        else if (cmdPart == "WATER_OFF")
+          decisionFlag = 0;
+
+        // Forward to Arduino over UART (single-line command)
+        String uartMsg = "CMD:" + cmdPart + ";SEC:" + String(seconds) + "\n";
+        SerialToArduino.print(uartMsg);
+        Serial.print("[UART] Sent to Arduino: ");
+        Serial.print(uartMsg);
+      }
+    }
+    // Legacy format: DECISION:WATER_ON
+    else if (line.length() > 0 && line.startsWith("DECISION:"))
     {
       String decision = line.substring(9);
       decision.trim();
 
-      Serial.print("[ESP32] Parsed decision: ");
+      Serial.print("[ESP32] Parsed decision (legacy): ");
       Serial.println(decision);
 
       if (decision == "WATER_ON")
       {
         decisionFlag = 1;
-        Serial.println("[ESP32] Activating pump (SIMULATED: WATER_ON).");
-        // In the future, this will just forward the command to the Arduino over UART.
+        Serial.println("[ESP32] Legacy WATER_ON received.");
       }
       else if (decision == "WATER_OFF")
       {
         decisionFlag = 0;
-        Serial.println("[ESP32] Stopping pump (SIMULATED: WATER_OFF).");
+        Serial.println("[ESP32] Legacy WATER_OFF received.");
       }
       else
       {
-        Serial.println("[ESP32] Unknown decision value received.");
+        Serial.println("[ESP32] Unknown legacy decision value received.");
       }
+
+      // Forward legacy decision to Arduino with SEC=0 (keeps Arduino parser simple)
+      String uartMsg = "CMD:" + decision + ";SEC:0\n";
+      SerialToArduino.print(uartMsg);
+      Serial.print("[UART] Sent to Arduino (legacy mapped): ");
+      Serial.print(uartMsg);
     }
     else if (line.length() > 0)
     {
-      Serial.println("[ESP32] BT line does not start with 'DECISION:'. Ignoring.");
+      Serial.println("[ESP32] Unknown BT message format. Ignoring.");
     }
   }
 
