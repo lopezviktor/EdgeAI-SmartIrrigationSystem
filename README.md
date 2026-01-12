@@ -2,8 +2,6 @@
 # 🌱 Smart Irrigation System — IoT + Edge AI (Dose-Based Control)
 
 York St John University — **COM6017M: The Internet of Things (Level 6)**  
-Student: **Victor López**  
-Assessment: **Portfolio (Artefact + 2000-word report)**
 
 ---
 
