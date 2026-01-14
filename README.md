@@ -46,7 +46,7 @@ Manual irrigation and fixed schedules often waste water and fail to adapt to cha
 
 ## 4) System Architecture
 
-### 4.0 Architecture Diagrams
+### 4.1 Architecture Diagrams
 
 The following diagrams document the overall design and data flow of the system:
 
@@ -65,7 +65,7 @@ The following diagrams document the overall design and data flow of the system:
   <img src="docs/diagrams/hardware_architecture.drawio.png" alt="Hardware Architecture Diagram" width="70%">
 </p>
 
-### 4.1 Roles
+### 4.2 Roles
 
 - **Arduino UNO R4 WiFi (Sensor + Actuator Node)**
   - Reads sensors
@@ -86,7 +86,7 @@ The following diagrams document the overall design and data flow of the system:
     - Random Forest regression for pump duration
   - Sends commands back to ESP32 (`CMD:...;SEC:...`)
 
-### 4.2 M2M Data Flow (High Level)
+### 4.3 M2M Data Flow (High Level)
 
 ```text
 [Soil1, Soil2, DHT22, LDR]
