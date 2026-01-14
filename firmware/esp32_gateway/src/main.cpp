@@ -124,8 +124,18 @@ void uploadToThingSpeak()
                "&field6=" + String(decisionFlag) +   // 0 o 1
                "&field7=" + String(wateringSeconds); // 0,8,14,18,24
 
+  // Create a safe version of the URL for logging (hide API key)
+  String safeUrl = String(TS_URL) + "?api_key=***" +
+                   "&field1=" + String(g_state.soil1) +
+                   "&field2=" + String(g_state.soil2) +
+                   "&field3=" + String(g_state.temp) +
+                   "&field4=" + String(g_state.hum) +
+                   "&field5=" + String(g_state.light) +
+                   "&field6=" + String(decisionFlag) +
+                   "&field7=" + String(wateringSeconds);
+
   Serial.println("[TS] Uploading telemetry + decision");
-  Serial.println("[TS] URL: " + url);
+  Serial.println("[TS] URL: " + safeUrl);
 
   HTTPClient http;
   http.begin(url);
