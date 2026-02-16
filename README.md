@@ -252,6 +252,29 @@ It supports responsible water use and aligns with sustainable resource managemen
 
 ---
 
-## 12) License
+## 12) Key Learnings & Technical Achievements
+
+This project pushed my understanding of:
+
+**IoT & Edge Computing:**
+- Real-world M2M communication protocols (UART, Bluetooth SPP)
+- Trade-offs between edge processing vs. cloud inference
+- Distributed system design with multiple microcontrollers
+
+**Machine Learning in Production:**
+- Feature engineering for time-series sensor data
+- Model deployment on resource-constrained devices (Raspberry Pi)
+- Training-serving contract to prevent silent bugs
+
+**Systems Engineering:**
+- Closed-loop control with hysteresis (preventing oscillation)
+- Safety-first design (dry-run mode, duration clamping)
+- End-to-end integration: sensors → inference → actuation → telemetry
+
+**Outcome:** Achieved **First Class grade (80/100)** demonstrating practical IoT/ML integration.
+
+---
+
+## 13) License
 
 MIT License.
