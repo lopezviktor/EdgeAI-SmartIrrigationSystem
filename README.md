@@ -271,7 +271,7 @@ This project pushed my understanding of:
 - Safety-first design (dry-run mode, duration clamping)
 - End-to-end integration: sensors → inference → actuation → telemetry
 
-**Outcome:** Achieved **First Class grade (80/100)** demonstrating practical IoT/ML integration.
+**Outcome:** Achieved **First Class grade (88/100)** demonstrating practical IoT/ML integration.
 
 ---
 
